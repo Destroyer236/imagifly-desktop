@@ -56,6 +56,31 @@ go build -trimpath -ldflags "-s -w" -o imagifly-desktop.exe .
 
 `web/` 通过 `go:embed` 打进 exe；改了前端必须重新 `go build`，不能只替换 HTML。`build.ps1` 会在 `app.manifest` 或 `assets/app.ico` 比 `rsrc_windows_amd64.syso` 新时自动重跑 `rsrc`；手工构建前若改过这两个文件，也要先执行 `rsrc -manifest app.manifest -ico assets\app.ico -o rsrc_windows_amd64.syso`，否则 DPI/图标资源不会更新。
 
+## 发布
+
+GitHub Releases 提供两个包：
+
+| 文件 | 内容 | 构建方式 |
+| --- | --- | --- |
+| `ImagiflyDesktop-<ver>-win64-portable.zip` | 免安装版，exe 经 UPX 压缩（8.9 MB → 2.9 MB），附 README/LICENSE/API-COVERAGE | `build.ps1` 出 exe 后 `upx --best --lzma`，再连同文档打包 |
+| `ImagiflyDesktop-<ver>-win64-setup.exe` | 安装版，Inno Setup 6 编译，按当前用户安装到 `%LocalAppData%\Programs\Imagifly Desktop`，带开始菜单/桌面快捷方式与卸载器 | `installer/imagifly-desktop.iss`，用 `ISCC.exe` 编译 |
+
+```powershell
+.\build.ps1 -Package
+
+# 免安装版
+$stage = 'dist\ImagiflyDesktop-1.2.15-win64-portable'
+Copy-Item imagifly-desktop.exe $stage
+upx --best --lzma "$stage\imagifly-desktop.exe"
+Copy-Item README.md, LICENSE, API-COVERAGE.md $stage
+Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.15-win64-portable.zip' -CompressionLevel Optimal
+
+# 安装版
+ISCC.exe /DAppVersion=1.2.15 installer\imagifly-desktop.iss
+```
+
+`installer/` 里带 `ChineseSimplified.isl`（Inno 官方简体中文语言文件），因此不需要额外安装语言包。安装版内是**未压缩**的 exe，避免 UPX 带来的杀软启发式误报。
+
 ## 使用
 
 直接双击 `imagifly-desktop.exe`。窗口关闭即退出；不会常驻托盘。
