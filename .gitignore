@@ -1,0 +1,20 @@
+# 构建产物
+/imagifly-desktop.exe
+/dist/
+*.exe
+*.syso
+*.zip
+
+# 本地运行数据（含登录会话，绝不入库）
+config.json
+accounts.bin
+session.bin
+
+# 开发与验收截图（保留构建所需的图标）
+/assets/*.png
+!/assets/icon-512.png
+
+# 杂项
+*.log
+.DS_Store
+Thumbs.db

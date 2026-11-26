@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imagifly 桌面版</title>
+<link rel="icon" href="/assets/app-icon.png" type="image/png">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="app-titlebar" id="windowBar">
+  <div class="titlebar-drag" id="titlebarDrag">
+    <img class="titlebar-logo" src="/assets/app-icon.png" width="36" height="36" alt="">
+    <div class="titlebar-meta">
+      <div class="titlebar-name">Imagifly</div>
+      <div class="titlebar-sub">AI Image &amp; Video Studio</div>
+    </div>
+    <span class="titlebar-version" id="windowVersion" hidden></span>
+  </div>
+  <div class="window-controls" id="windowControls" hidden>
+    <button class="win-btn" data-win="min" data-tip="最小化" aria-label="最小化">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+    </button>
+    <button class="win-btn" data-win="max" data-tip="最大化" aria-label="最大化">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="1.4"/></svg>
+    </button>
+    <button class="win-btn close" data-win="close" data-tip="关闭" aria-label="关闭">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="resize-handles" id="resizeHandles" hidden>
+  <div data-resize="top"></div>
+  <div data-resize="bottom"></div>
+  <div data-resize="left"></div>
+  <div data-resize="right"></div>
+  <div data-resize="top-left"></div>
+  <div data-resize="top-right"></div>
+  <div data-resize="bottom-left"></div>
+  <div data-resize="bottom-right"></div>
+</div>
+
+<div class="window-body">
+  <div id="boot" class="boot">
+    <div class="boot-mark">
+      <img src="/assets/app-icon.png" alt="" width="72" height="72">
+    </div>
+    <div class="boot-title">Imagifly</div>
+    <div class="boot-sub">桌面版</div>
+    <div class="boot-wavy" id="bootWavy"></div>
+    <div class="boot-status" id="bootStatus">正在连接 imagifly.net</div>
+  </div>
+
+  <div id="app" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="modal-root"></div>
+</div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
