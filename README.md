@@ -26,22 +26,33 @@ imagifly.net 的 Windows 桌面客户端。Go 单文件后端 + WebView2 原生�
 
 - Windows 10 1809 及以上（64 位）。
 - **Microsoft Edge WebView2 Runtime**。Win10/11 通常已随 Edge 安装；缺失时程序会尝试用 Edge 的 `--app` 窗口启动。
-- 运行发布版不需要 Go；自行构建需要 Go 1.24+（开发时使用 Go 1.27.4），`CGO_ENABLED=0`。
+- 运行发布版不需要 Go；自行构建需要 Go 1.24+（开发时使用 Go 1.27.4）、`CGO_ENABLED=0`，以及 PowerShell 7（`pwsh`）。
 
 ## 构建
 
 ```powershell
-cd D:\imag\imagifly-desktop
+git clone https://github.com/Destroyer236/imagifly-desktop.git
+cd imagifly-desktop
+
+# 首次构建要能访问 Go 模块代理；国内网络建议先设代理
+$env:GOPROXY = 'https://goproxy.cn,direct'
+
 .\build.ps1            # 生成 imagifly-desktop.exe
 .\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.15-win64.zip
+.\build.ps1 -Test      # 构建前先跑 go test ./...
 ```
+
+`build.ps1` 要求 **PowerShell 7**（`pwsh`）；Windows 自带的 5.1 会因为脚本头的 `#Requires -Version 7.0` 直接拒绝执行。
 
 等价的手工命令：
 
 ```powershell
 $env:CGO_ENABLED = '0'
+$env:GOPROXY = 'https://goproxy.cn,direct'
 go build -trimpath -ldflags "-s -w" -o imagifly-desktop.exe .
 ```
+
+`rsrc_windows_amd64.syso` 已随仓库提供，内含 PerMonitorV2 manifest 和多尺寸图标，因此克隆后**不需要安装 `rsrc`** 也能构建出带图标和 DPI 声明的 exe。
 
 `web/` 通过 `go:embed` 打进 exe；改了前端必须重新 `go build`，不能只替换 HTML。`build.ps1` 会在 `app.manifest` 或 `assets/app.ico` 比 `rsrc_windows_amd64.syso` 新时自动重跑 `rsrc`；手工构建前若改过这两个文件，也要先执行 `rsrc -manifest app.manifest -ico assets\app.ico -o rsrc_windows_amd64.syso`，否则 DPI/图标资源不会更新。
 

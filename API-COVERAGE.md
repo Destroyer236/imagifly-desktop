@@ -1,6 +1,6 @@
 # Imagifly API 覆盖清单
 
-对照 `D:\imag\imagifly-api-spec.md` 的 47 项端点逐条核对。程序内「开发者 → 接口覆盖」渲染的是同一份数据（`internal/app/coverage.go`），便于随代码一起复查。
+对照 imagifly.net API 规范的 47 项端点逐条核对（该规范文档未随仓库分发，端点明细见下表）。程序内「开发者 → 接口覆盖」渲染的是同一份数据（`internal/app/coverage.go`），便于随代码一起复查。
 
 状态说明：
 
