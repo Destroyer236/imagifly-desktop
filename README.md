@@ -158,6 +158,10 @@ imagifly-desktop/
    └─ js/                app / screens / task / ui / api / store / icons / runtime
 ```
 
+## 许可
+
+[MIT](LICENSE) © 2026 Zephyr
+
 
 
 

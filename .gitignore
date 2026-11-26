@@ -2,8 +2,8 @@
 /imagifly-desktop.exe
 /dist/
 *.exe
-*.syso
 *.zip
+# rsrc_windows_amd64.syso 需要入库：内含 DPI manifest 与图标，缺失会导致构建出的 exe 没有图标
 
 # 本地运行数据（含登录会话，绝不入库）
 config.json
