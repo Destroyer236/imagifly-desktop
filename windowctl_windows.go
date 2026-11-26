@@ -126,14 +126,14 @@ type monitorInfo struct {
 // edge hit areas and calls the native sizing loop. When maximized, the client
 // is clipped to the monitor work area so content does not slide under the
 // taskbar or lose pixels at the screen edge.
-func customFrameWndProc(hwnd, msg, wp, lp uintptr) uintptr {
-	if msg == wmGetMinMaxInfo && lp != 0 {
+func customFrameWndProc(hwnd, msg, wp uintptr, lp unsafe.Pointer) uintptr {
+	if msg == wmGetMinMaxInfo && lp != nil {
 		monitor, _, _ := procMonitorFromWindow.Call(hwnd, 2) // MONITOR_DEFAULTTONEAREST
 		if monitor != 0 {
 			var info monitorInfo
 			info.CbSize = uint32(unsafe.Sizeof(info))
 			if ok, _, _ := procGetMonitorInfoW.Call(monitor, uintptr(unsafe.Pointer(&info))); ok != 0 {
-				mi := (*minMaxInfo)(unsafe.Pointer(lp))
+				mi := (*minMaxInfo)(lp)
 				mi.PtMaxPosition.X = info.RcWork.Left - info.RcMonitor.Left
 				mi.PtMaxPosition.Y = info.RcWork.Top - info.RcMonitor.Top
 				mi.PtMaxSize.X = info.RcWork.Right - info.RcWork.Left
@@ -149,8 +149,8 @@ func customFrameWndProc(hwnd, msg, wp, lp uintptr) uintptr {
 				var info monitorInfo
 				info.CbSize = uint32(unsafe.Sizeof(info))
 				if ok, _, _ := procGetMonitorInfoW.Call(monitor, uintptr(unsafe.Pointer(&info))); ok != 0 {
-					if lp != 0 {
-						params := (*nccalcSizeParams)(unsafe.Pointer(lp))
+					if lp != nil {
+						params := (*nccalcSizeParams)(lp)
 						params.Rgrc[0] = info.RcWork
 					}
 				}
@@ -159,7 +159,7 @@ func customFrameWndProc(hwnd, msg, wp, lp uintptr) uintptr {
 		return 0
 	}
 	if originalFrameProc != 0 {
-		r, _, _ := procCallWindowProcW.Call(originalFrameProc, hwnd, msg, wp, lp)
+		r, _, _ := procCallWindowProcW.Call(originalFrameProc, hwnd, msg, wp, uintptr(lp))
 		return r
 	}
 	return 0
