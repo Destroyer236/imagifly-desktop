@@ -714,13 +714,11 @@ export async function downloadAsset(url, name) {
     toast('该作品还没有可下载的文件', 'error');
     return;
   }
-  toast('正在下载…');
   try {
-    const q = new URLSearchParams({ u: url, name: name || '' });
-    const data = await api('/local/download?' + q.toString());
-    toast(`已保存：${data.path}`, 'ok', {
-      label: '打开目录',
-      fn: () => api('/local/reveal', { method: 'POST', body: { path: data.path } }).catch((e) => toast(e.message, 'error')),
+    await api('/local/downloads', { method: 'POST', body: { url, name: name || '' } });
+    toast('已加入下载队列', 'ok', {
+      label: '查看进度',
+      fn: () => document.querySelector('.rail-item[data-route="downloads"]')?.click(),
     });
   } catch (e) {
     toast(e.message || '下载失败', 'error');

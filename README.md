@@ -13,6 +13,7 @@ imagifly.net 的 Windows 桌面客户端。Go 单文件后端 + WebView2 原生�
 | --- | --- |
 | 创作 | 图片/视频生成、模型与参数联动、参考图/首末帧/参考视频音频、Seedance 2.0/2.5 变体、成本预览、提示词优化、英文优先模型的一键译英文（MyMemory 免费接口，本地缓存 24 小时）、并发位与 429 提示、上游参数自动同步 |
 | 作品 | 最近生成、作品库、自动轮询、详情/下载/删除/复制提示词、可见性、二创复用；删除即时从列表移除，后台等待上游确认，失败自动恢复 |
+| 下载 | 独立下载队列：实时进度、速度、已下载/总大小、剩余时间、落盘路径；2 个并发通道 + 排队、取消、重试、清除已完成、打开文件/目录 |
 | 社区 | 今日精选、社区/关注动态、图片/视频筛选、搜索（带清除与关键词回显）、点赞、关注、举报、二创登记、详情、下载 |
 | 积分 | 额度仪表、签到、额度构成与流水、套餐与 Stripe 支付、邀请返利 |
 | 设置 | 多账号添加/切换/移除、账号资料/头像/改密、账号 ID/注册时间/社区数据、关注/公开作品/收到点赞/点赞了别人关系页、通知、安全与本地、已授权设备、下载目录 |
@@ -39,7 +40,7 @@ cd imagifly-desktop
 $env:GOPROXY = 'https://goproxy.cn,direct'
 
 .\build.ps1            # 生成 imagifly-desktop.exe
-.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.21-win64.zip
+.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.22-win64.zip
 .\build.ps1 -Test      # 构建前先跑 go test ./...
 ```
 
@@ -70,14 +71,14 @@ GitHub Releases 提供两个包：
 .\build.ps1 -Package
 
 # 免安装版
-$stage = 'dist\ImagiflyDesktop-1.2.21-win64-portable'
+$stage = 'dist\ImagiflyDesktop-1.2.22-win64-portable'
 Copy-Item imagifly-desktop.exe $stage
 upx --best --lzma "$stage\imagifly-desktop.exe"
 Copy-Item README.md, LICENSE, API-COVERAGE.md $stage
-Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.21-win64-portable.zip' -CompressionLevel Optimal
+Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.22-win64-portable.zip' -CompressionLevel Optimal
 
 # 安装版
-ISCC.exe /DAppVersion=1.2.21 installer\imagifly-desktop.iss
+ISCC.exe /DAppVersion=1.2.22 installer\imagifly-desktop.iss
 ```
 
 `installer/` 里带 `ChineseSimplified.isl`（Inno 官方简体中文语言文件），因此不需要额外安装语言包。安装版内是**未压缩**的 exe，避免 UPX 带来的杀软启发式误报。
@@ -95,6 +96,20 @@ ISCC.exe /DAppVersion=1.2.21 installer\imagifly-desktop.iss
 | 清理 | 新包下载完成时删除目录里其它安装包；安装器启动的新进程带 `--cleanup-installer=<包路径>`，重试删除该包；应用启动时再清理超过 1 小时的遗留包 |
 
 镜像列表写在 `internal/app/update.go` 的 `updateMirrors`；新增镜像只要加一行 `{ID, Name, Prefix, Hint}`，`Prefix` 为空表示直连。注意镜像只加速 `github.com` 资产下载，Release 元数据仍走 `api.github.com`，所以「检查更新」本身需要能连 GitHub API。
+
+## 下载队列
+
+作品详情、社区卡片和作品库的「保存」不再走阻塞请求，而是把 URL 交给本地下载队列：
+
+| 接口 | 作用 |
+| --- | --- |
+| `POST /local/downloads` | 入队 `{url, name}`，返回任务 ID；同时最多 2 个下载，其余排队 |
+| `GET /local/downloads` | 任务快照：`state`、`received` / `total`、`speed`、`path`、`error` |
+| `POST /local/downloads/cancel` | 取消并删除 `.part` |
+| `POST /local/downloads/remove` / `clear` | 移除已结束的任务 / 清空全部已结束任务 |
+
+下载页每 0.8 秒轮询活跃任务，展示进度条、百分比、已下载/总大小、实时速度、剩余时间与落盘路径；任务结束后提供打开文件、打开目录与重试。
+
 
 ## 与上游同步（参数不必发版）
 

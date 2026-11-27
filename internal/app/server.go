@@ -28,6 +28,7 @@ type Server struct {
 	Logs    *ringLog
 
 	mediaCacheDir string
+	dl            *downloadManager
 
 	cfgMu sync.Mutex
 
@@ -44,6 +45,11 @@ type Server struct {
 
 func NewServer(web fs.FS, cfg *Config, api *imagiapi.Client, version string, demo bool) *Server {
 	s := &Server{Web: web, Cfg: cfg, API: api, Version: version, Demo: demo, Logs: newRingLog(80), mediaCacheDir: defaultMediaCacheDir()}
+	s.dl = newDownloadManager(api, func() string {
+		s.cfgMu.Lock()
+		defer s.cfgMu.Unlock()
+		return s.Cfg.DownloadDir
+	})
 	api.Hook = func(method, path string, status int, dur time.Duration) {
 		s.Logs.Add(LogEntry{Method: method, Path: path, Status: status, MS: dur.Milliseconds()})
 	}
@@ -310,6 +316,47 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /local/media", s.handleMedia)
 	mux.HandleFunc("GET /local/download", s.handleDownload)
+
+	mux.HandleFunc("GET /local/downloads", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		return map[string]any{"items": s.dl.list()}, nil
+	}, 5*time.Second))
+	mux.HandleFunc("POST /local/downloads", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		var in struct {
+			URL  string `json:"url"`
+			Name string `json:"name"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			return nil, err
+		}
+		return s.dl.start(in.URL, in.Name)
+	}, 10*time.Second))
+	mux.HandleFunc("POST /local/downloads/cancel", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			return nil, err
+		}
+		if err := s.dl.cancel(in.ID); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true}, nil
+	}, 5*time.Second))
+	mux.HandleFunc("POST /local/downloads/clear", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		return map[string]any{"removed": s.dl.clear()}, nil
+	}, 5*time.Second))
+	mux.HandleFunc("POST /local/downloads/remove", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			return nil, err
+		}
+		if err := s.dl.remove(in.ID); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true}, nil
+	}, 5*time.Second))
 	mux.HandleFunc("POST /local/reveal", s.wrap(s.handleReveal, 20*time.Second))
 	mux.HandleFunc("POST /local/open", s.wrap(s.handleOpenExternal, 20*time.Second))
 

@@ -10,12 +10,14 @@ import { renderCredits, renderSettings, renderRelations, accountActions } from '
 import { renderDev, devActions } from './screen-dev.js';
 import { renderAbout } from './screen-about.js';
 import { renderUpdate, updateActions } from './screen-update.js';
+import { renderDownloads, downloadActions } from './screen-downloads.js';
 import { startUpdateWatcher } from './update-check.js';
 import { taskActions } from './task.js';
 
 const ROUTES = {
   create: { title: '创作', sub: '写下画面，交给模型', icon: 'sparkle', render: renderCreate, actions: createActions, updateTasks: updateCreateTasks },
   library: { title: '作品', sub: '最近生成与我的作品库', icon: 'library', render: renderLibrary, actions: libraryActions, updateTasks: updateLibraryTasks },
+  downloads: { title: '下载', sub: '下载队列、进度与速度', icon: 'download', render: renderDownloads, actions: downloadActions },
   community: { title: '社区', sub: '看看别人正在生成什么', icon: 'globe', render: renderCommunity, actions: communityActions },
   credits: { title: '积分', sub: '额度、签到与订阅', icon: 'star', render: renderCredits, actions: accountActions },
   settings: { title: '设置', sub: '账号、通知与本地设置', icon: 'tune', render: renderSettings, actions: accountActions },
@@ -434,7 +436,7 @@ const sharedActions = {
 };
 
 function buildActions() {
-  return { ...sharedActions, ...taskActions, ...createActions, ...libraryActions, ...communityActions, ...accountActions, ...devActions, ...updateActions };
+  return { ...sharedActions, ...taskActions, ...createActions, ...libraryActions, ...communityActions, ...accountActions, ...devActions, ...updateActions, ...downloadActions };
 }
 
 let actionMap = {};
