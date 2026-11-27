@@ -228,35 +228,59 @@ func probeMirror(ctx context.Context, m updateMirror, asset string) mirrorTest {
 	client := &http.Client{Timeout: 12 * time.Second}
 	url := m.Prefix + asset
 	start := time.Now()
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
-	if err == nil {
-		req.Header.Set("User-Agent", updateUserAgen)
-		var resp *http.Response
-		resp, err = client.Do(req)
-		if err == nil {
-			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1))
-			resp.Body.Close()
-			if resp.StatusCode >= 400 {
-				err = fmt.Errorf("HTTP %d", resp.StatusCode)
-			}
-		}
+	err := probeOnce(ctx, client, http.MethodHead, url)
+	if err != nil {
+		// Some front-ends reject HEAD; fall back to a one-byte ranged GET.
+		err = probeOnce(ctx, client, http.MethodGet, url)
 	}
 	out.MS = time.Since(start).Milliseconds()
 	if err != nil {
-		if ctx.Err() != nil {
-			out.Error = "超时"
-		} else if strings.Contains(err.Error(), "certificate") || strings.Contains(err.Error(), "SSL") {
-			out.Error = "证书错误"
-		} else {
-			out.Error = err.Error()
-			if len(out.Error) > 60 {
-				out.Error = out.Error[:60]
-			}
-		}
+		out.Error = mirrorErrorText(ctx, err)
 		return out
 	}
 	out.OK = true
 	return out
+}
+
+func probeOnce(ctx context.Context, client *http.Client, method, url string) error {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", updateUserAgen)
+	if method == http.MethodGet {
+		req.Header.Set("Range", "bytes=0-0")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1))
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// mirrorErrorText keeps mirror failures short and Chinese; raw net errors are
+// long English sentences that do not belong in a pill on the update screen.
+func mirrorErrorText(ctx context.Context, err error) string {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case ctx.Err() != nil || os.IsTimeout(err) || strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline"):
+		return "超时"
+	case strings.Contains(msg, "no such host") || strings.Contains(msg, "dns"):
+		return "DNS 解析失败"
+	case strings.Contains(msg, "certificate") || strings.Contains(msg, "x509") || strings.Contains(msg, "tls"):
+		return "证书错误"
+	case strings.Contains(msg, "connection refused") || strings.Contains(msg, "connectex"):
+		return "拒绝连接"
+	case strings.HasPrefix(err.Error(), "HTTP "):
+		return err.Error()
+	default:
+		return "连接失败"
+	}
 }
 
 // --- downloader ------------------------------------------------------------
