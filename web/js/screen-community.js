@@ -7,13 +7,23 @@ import { R } from './runtime.js';
 function card(item, index = 0) {
   const isVideo = item.mode === 'video';
   const asset = item.assets?.[0];
-  const rawThumb = item.previewThumbnailUrl || asset?.thumbnailUrl || asset?.url;
-  const thumb = UI.assetImageURL(asset) || UI.mediaURL(rawThumb);
-  const fallback = UI.proxyMediaURL(asset?.thumbnailUrl || rawThumb || asset?.url);
+  // 视频条目没有 previewThumbnailUrl / thumbnailUrl，只有 mp4 本身；把 mp4 塞进
+  // <img> 会渲染成裂图。视频卡片改用 <video> 预载首帧，有海报再用海报。
+  const poster = isVideo ? UI.mediaURL(item.previewThumbnailUrl || asset?.thumbnailUrl) : '';
+  const videoSrc = isVideo ? UI.proxyMediaURL(item.previewVideoUrl || asset?.url || item.previewThumbnailUrl) : '';
+  const imageSrc = isVideo ? '' : UI.assetImageURL(asset) || UI.mediaURL(item.previewThumbnailUrl || asset?.thumbnailUrl || asset?.url);
+  const imageFallback = isVideo ? '' : UI.proxyMediaURL(asset?.thumbnailUrl || item.previewThumbnailUrl || asset?.url);
+  const media = isVideo
+    ? `<div class="video-ph">${icon('movie', 30)}<span>视频</span></div>${videoSrc
+      ? `<video src="${UI.esc(videoSrc)}${videoSrc.includes('#') ? '' : '#t=0.1'}"${poster ? ` poster="${UI.esc(poster)}"` : ''} muted loop playsinline preload="metadata" disablepictureinpicture aria-hidden="true"></video>`
+      : ''}`
+    : (imageSrc
+      ? `<img src="${imageSrc}" loading="eager" fetchpriority="${index < 6 ? 'high' : 'auto'}" decoding="async" alt=""${imageFallback ? ` data-fallback="${UI.esc(imageFallback)}"` : ''}>`
+      : `<div class="ph">${icon('image', 36)}</div>`);
   const author = item.authorName || item.userId || '匿名';
   return `<div class="media-card" data-act="open-community" data-id="${UI.esc(item.id)}" tabindex="0" role="button">
     <div class="frame">
-      ${thumb ? `<img src="${thumb}" loading="eager" fetchpriority="${index < 6 ? 'high' : 'auto'}" decoding="async" alt=""${fallback ? ` data-fallback="${UI.esc(fallback)}"` : ''}>` : `<div class="ph">${icon(isVideo ? 'movie' : 'image', 36)}</div>`}
+      ${media}
       <span class="pill dark badge-type">${icon(isVideo ? 'movie' : 'image', 12)}${isVideo ? '视频' : '图片'}</span>
       ${item.isPublic ? `<span class="status"><span class="pill ok">${icon('globe', 12)}公开</span></span>` : ''}
     </div>
@@ -38,6 +48,22 @@ async function loadFollows() {
     }
     S.community.follows = set;
   } catch {}
+}
+
+// 视频条目本身没有缩略图，只能靠 <video> 的元数据/首帧。CDN 较慢时先在卡片里
+// 放一张「视频」占位，等首帧真正解码出来再淡入，避免一整块空白或裂图。
+function bindVideoThumbs(root) {
+  root.querySelectorAll('video').forEach((video) => {
+    const show = () => video.classList.add('ready');
+    video.addEventListener('loadeddata', show, { once: true });
+    video.addEventListener('seeked', show, { once: true });
+    video.addEventListener('loadedmetadata', () => {
+      try {
+        if (video.currentTime < 0.05) video.currentTime = 0.12;
+      } catch {}
+    });
+    if (video.readyState >= 2) show();
+  });
 }
 
 async function loadFeed() {
@@ -114,6 +140,7 @@ function paint(view) {
     : (c.q
       ? UI.emptyState('search', `没有匹配「${UI.esc(c.q)}」的作品`, '换个关键词试试，或点「清除搜索」回到全部作品。')
       : UI.emptyState('globe', c.kind === 'dynamic' ? '关注的人还没有新作品' : '这里暂时没有作品', c.kind === 'dynamic' ? '去社区关注一些创作者，他们的新作品会出现在这里。' : '切换图片/视频，或换个关键词试试。'));
+  bindVideoThumbs(grid);
 
   const search = view.querySelector('#comSearch');
   search?.addEventListener('keydown', (e) => {
