@@ -22,10 +22,11 @@ import (
 //go:embed web
 var webBundle embed.FS
 
-const version = "1.2.16"
+const version = "1.2.17"
 
 func main() {
 	enableDPIAwareness()
+	app.CleanupInstallers()
 
 	selftest := flag.Bool("selftest", false, "run live API checks and exit")
 	headless := flag.Bool("headless", false, "serve the local UI without opening a window")

@@ -9,6 +9,7 @@ import { renderCommunity, communityActions } from './screen-community.js';
 import { renderCredits, renderSettings, renderRelations, accountActions } from './screen-account.js';
 import { renderDev, devActions } from './screen-dev.js';
 import { renderAbout } from './screen-about.js';
+import { renderUpdate, updateActions } from './screen-update.js';
 import { taskActions } from './task.js';
 
 const ROUTES = {
@@ -19,6 +20,7 @@ const ROUTES = {
   settings: { title: '设置', sub: '账号、通知与本地设置', icon: 'tune', render: renderSettings, actions: accountActions },
   relations: { title: '关注与点赞', sub: '账号的社区关系', icon: 'person', hidden: true, render: renderRelations, actions: accountActions },
   dev: { title: '开发者', sub: 'API Key、MCP 与接口覆盖', icon: 'code', render: renderDev, actions: devActions },
+  update: { title: '更新', sub: '检查新版本、镜像下载与安装', icon: 'speed', render: renderUpdate, actions: updateActions },
   about: { title: '关于', sub: '版本、作者与致谢', icon: 'info', render: renderAbout, actions: {} },
 };
 
@@ -430,7 +432,7 @@ const sharedActions = {
 };
 
 function buildActions() {
-  return { ...sharedActions, ...taskActions, ...createActions, ...libraryActions, ...communityActions, ...accountActions, ...devActions };
+  return { ...sharedActions, ...taskActions, ...createActions, ...libraryActions, ...communityActions, ...accountActions, ...devActions, ...updateActions };
 }
 
 let actionMap = {};

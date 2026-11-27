@@ -3,7 +3,7 @@
 ; 依赖：..\imagifly-desktop.exe（先跑 build.ps1）、..\assets\app.ico、ChineseSimplified.isl
 
 #ifndef AppVersion
-  #define AppVersion "1.2.16"
+  #define AppVersion "1.2.17"
 #endif
 
 #define AppName "Imagifly Desktop"
@@ -63,8 +63,15 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename:
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:Custom_Launch}"; Flags: nowait postinstall skipifsilent
+; 由客户端「更新」页发起的安装：带 /SRC=<安装包路径>，装完后自动把旧安装包删掉
+Filename: "{app}\{#AppExeName}"; Parameters: "--cleanup-installer=""{param:SRC}"""; Flags: nowait; Check: HasSourcePackage
 
 [Code]
+function HasSourcePackage: Boolean;
+begin
+  Result := ExpandConstant('{param:SRC|}') <> '';
+end;
+
 function WebView2Installed: Boolean;
 begin
   Result := DirExists(ExpandConstant('{commonpf32}\Microsoft\EdgeWebView\Application')) or

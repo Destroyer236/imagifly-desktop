@@ -26,3 +26,7 @@ func revealInExplorer(path string) error {
 	dir := path
 	return openExternal("file://" + dir)
 }
+
+func openFolder(path string) error {
+	return openExternal("file://" + path)
+}

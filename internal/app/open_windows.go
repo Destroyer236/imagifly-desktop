@@ -36,6 +36,14 @@ func revealInExplorer(path string) error {
 	return exec.Command(explorer, "/select,"+path).Start()
 }
 
+func openFolder(path string) error {
+	explorer, err := systemBinary("explorer.exe")
+	if err != nil {
+		return err
+	}
+	return exec.Command(explorer, path).Start()
+}
+
 // The desktop app is started by a launcher with a reduced PATH (it does not
 // necessarily include C:\Windows), so never rely on PATH for built-in
 // executables such as explorer.exe / rundll32.exe.

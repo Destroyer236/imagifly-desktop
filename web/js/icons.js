@@ -52,6 +52,7 @@ const ICONS = {
   grid: `<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>`,
   list: `<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>`,
   bolt: `<path d="M13 2.5L5 14h6L11 21.5 19 10h-6z"/>`,
+  speed: `<path d="M4.2 17.5a8 8 0 1 1 15.6 0"/><path d="M12 12.2l4.4-3.4"/><circle cx="12" cy="12.2" r="1.2"/>`,
   palette: `<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.8-1.9 0-1.5-1.5-1.9-1.5-3.1 0-.9.8-1.5 1.8-1.5h1.4A6 6 0 0 0 20.5 12 8.5 8.5 0 0 0-8.5-8.5z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9.5" cy="6.8" r="1"/><circle cx="14" cy="6.5" r="1"/>`,
   share: `<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/>`,
   stop: `<rect x="6" y="6" width="12" height="12" rx="2.5"/>`,

@@ -32,6 +32,14 @@ type Server struct {
 	cfgMu sync.Mutex
 
 	accountsMu sync.Mutex
+
+	relMu   sync.Mutex
+	relInfo *updateInfo
+	relAt   time.Time
+
+	updMu     sync.Mutex
+	updProg   updateProgress
+	updCancel context.CancelFunc
 }
 
 func NewServer(web fs.FS, cfg *Config, api *imagiapi.Client, version string, demo bool) *Server {
@@ -287,6 +295,15 @@ func (s *Server) Handler() http.Handler {
 	}, 30*time.Second))
 
 	// --- media & shell ---------------------------------------------------
+	// --- self update -----------------------------------------------------
+	mux.HandleFunc("GET /local/update/info", s.wrap(s.handleUpdateInfo, 40*time.Second))
+	mux.HandleFunc("POST /local/update/mirrors/test", s.wrap(s.handleUpdateMirrorTest, 40*time.Second))
+	mux.HandleFunc("POST /local/update/download", s.wrap(s.handleUpdateDownload, 30*time.Second))
+	mux.HandleFunc("GET /local/update/status", s.wrap(s.handleUpdateStatus, 10*time.Second))
+	mux.HandleFunc("POST /local/update/cancel", s.wrap(s.handleUpdateCancel, 10*time.Second))
+	mux.HandleFunc("POST /local/update/install", s.wrap(s.handleUpdateInstall, 20*time.Second))
+	mux.HandleFunc("POST /local/update/open-folder", s.wrap(s.handleUpdateOpenFolder, 20*time.Second))
+
 	mux.HandleFunc("GET /local/media", s.handleMedia)
 	mux.HandleFunc("GET /local/download", s.handleDownload)
 	mux.HandleFunc("POST /local/reveal", s.wrap(s.handleReveal, 20*time.Second))
