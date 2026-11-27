@@ -4,11 +4,15 @@ import { icon } from './icons.js';
 import * as UI from './ui.js';
 
 /* 下载页：消费 /local/downloads 的队列快照，展示每个任务的进度、速度、
-   剩余时间与落盘位置。任务由服务端在后台执行，离开页面也不会中断。 */
+   剩余时间与落盘位置。任务由服务端在后台执行，离开页面也不会中断。
+
+   页面首次进入时整页绘制一次；之后的轮询只原地更新进度文字和进度条，
+   不重建 .page，避免 800ms 一次的重绘/入场动画看起来像「不断刷新」。 */
 
 const state = { items: [], error: '', loading: false };
 let view = null;
 let timer = null;
+let painted = false;
 
 function fmtBytes(n) {
   const v = Number(n) || 0;
@@ -74,12 +78,19 @@ function actionsHTML(item) {
   return '';
 }
 
-function taskHTML(item) {
-  const pct = item.total > 0 ? Math.min(100, Math.round((item.received / item.total) * 100)) : 0;
+function pctOf(item) {
+  return item.total > 0 ? Math.min(100, Math.round((item.received / item.total) * 100)) : 0;
+}
+
+function barWidth(item) {
+  const pct = pctOf(item);
+  return item.state === 'downloading' ? Math.max(2, pct) : pct;
+}
+
+function statHTML(item) {
+  const pct = pctOf(item);
   const active = item.state === 'downloading' || item.state === 'queued';
   const connecting = item.state === 'downloading' && item.received <= 0;
-  const eta = fmtEta(item);
-  const saveTo = item.path || S.cfg?.downloadDir || '';
   const stat = item.state === 'queued'
     ? '排队中，等待空闲通道'
     : connecting
@@ -91,7 +102,35 @@ function taskHTML(item) {
           : item.total > 0
             ? `已下载 ${fmtBytes(item.received)} / ${fmtBytes(item.total)}`
             : `已下载 ${fmtBytes(item.received)}`;
-  return `<article class="card pad-sm dl-item" data-dl="${UI.esc(item.id)}">
+  return `<span data-role="stat">${stat}${active && item.total > 0 ? `（${pct}%）` : ''}</span>`;
+}
+
+function speedHTML(item) {
+  const connecting = item.state === 'downloading' && item.received <= 0;
+  if (item.state !== 'downloading') return `<span class="dl-speed" data-role="speed" hidden></span>`;
+  return `<span class="dl-speed" data-role="speed">${connecting ? '等待首包…' : fmtSpeed(item.speed)}</span>`;
+}
+
+function etaHTML(item) {
+  const eta = fmtEta(item);
+  return `<span class="muted" data-role="eta"${eta ? '' : ' hidden'}>${eta}</span>`;
+}
+
+function metaHTML(item) {
+  return `<div class="dl-meta">
+    ${statHTML(item)}
+    ${speedHTML(item)}
+    ${etaHTML(item)}
+    <span class="dl-acts" data-role="acts">${actionsHTML(item)}</span>
+  </div>`;
+}
+
+function saveToOf(item) {
+  return item.path || S.cfg?.downloadDir || '';
+}
+
+function taskHTML(item) {
+  return `<article class="card pad-sm dl-item" data-dl="${UI.esc(item.id)}" data-state="${UI.esc(item.state)}" data-kind="${UI.esc(item.kind || 'file')}">
     <div class="dl-head">
       <span class="dl-kind ${item.kind || 'file'}">${icon(kindIcon(item.kind), 20)}</span>
       <div class="dl-title-box">
@@ -100,14 +139,9 @@ function taskHTML(item) {
       </div>
       ${statusPill(item)}
     </div>
-    <div class="upd-bar dl-bar"><i style="width:${item.state === 'downloading' ? Math.max(2, pct) : pct}%"></i></div>
-    <div class="dl-meta">
-      <span>${stat}${active && item.total > 0 ? `（${pct}%）` : ''}</span>
-      ${item.state === 'downloading' ? `<span class="dl-speed">${connecting ? '等待首包…' : fmtSpeed(item.speed)}</span>` : ''}
-      ${eta ? `<span class="muted">${eta}</span>` : ''}
-      <span class="dl-acts">${actionsHTML(item)}</span>
-    </div>
-    <div class="dl-path mono" title="${UI.esc(saveTo)}">${icon('folder', 13)}${UI.esc(saveTo || '下载目录未设置')}</div>
+    <div class="upd-bar dl-bar"><i style="width:${barWidth(item)}%"></i></div>
+    ${metaHTML(item)}
+    <div class="dl-path mono" title="${UI.esc(saveToOf(item))}">${icon('folder', 13)}${UI.esc(saveToOf(item) || '下载目录未设置')}</div>
   </article>`;
 }
 
@@ -118,22 +152,36 @@ function listHTML() {
   return `<div class="dl-list">${state.items.map(taskHTML).join('')}</div>`;
 }
 
-function heroHTML() {
+function heroTitleHTML() {
+  const downloading = state.items.filter((i) => i.state === 'downloading');
+  const queued = state.items.filter((i) => i.state === 'queued');
+  const speed = downloading.reduce((sum, i) => sum + (Number(i.speed) || 0), 0);
+  if (downloading.length) {
+    return `${downloading.length} 个下载中${queued.length ? ` <span class="upd-arrow">·</span> ${queued.length} 个排队` : ''}${speed > 0 ? ` <span class="upd-arrow">·</span> ${fmtSpeed(speed)}` : ''}`;
+  }
+  return queued.length ? `${queued.length} 个排队中` : '下载队列空闲';
+}
+
+function heroSubHTML() {
   const downloading = state.items.filter((i) => i.state === 'downloading');
   const queued = state.items.filter((i) => i.state === 'queued');
   const done = state.items.filter((i) => i.state === 'done').length;
-  const speed = downloading.reduce((sum, i) => sum + (Number(i.speed) || 0), 0);
-  const title = downloading.length
-    ? `${downloading.length} 个下载中${queued.length ? ` <span class="upd-arrow">·</span> ${queued.length} 个排队` : ''}${speed > 0 ? ` <span class="upd-arrow">·</span> ${fmtSpeed(speed)}` : ''}`
-    : queued.length ? `${queued.length} 个排队中` : '下载队列空闲';
-  const sub = downloading.length || queued.length
-    ? `2 个并发通道 · 已完成 ${done} 个 · 文件保存到 ${UI.esc(S.cfg?.downloadDir || '下载目录')}`
-    : `已完成 ${done} 个 · 文件保存到 ${UI.esc(S.cfg?.downloadDir || '下载目录')}`;
+  const dir = UI.esc(S.cfg?.downloadDir || '下载目录');
+  return downloading.length || queued.length
+    ? `2 个并发通道 · 已完成 ${done} 个 · 文件保存到 ${dir}`
+    : `已完成 ${done} 个 · 文件保存到 ${dir}`;
+}
+
+function countText() {
+  return `共 ${state.items.length} 个 · 同时最多 2 个，其余排队`;
+}
+
+function heroHTML() {
   return `<section class="card hero dl-hero">
     <div class="dl-hero-main">
       <div class="upd-eyebrow">Downloads · 本机后台下载</div>
-      <h1 class="dl-hero-title">${title}</h1>
-      <p class="upd-sub">${sub}</p>
+      <h1 class="dl-hero-title">${heroTitleHTML()}</h1>
+      <p class="upd-sub">${heroSubHTML()}</p>
     </div>
     <div class="dl-hero-acts">
       <button class="btn text sm" data-act="dl-clear">${icon('trash', 16)}清除已完成</button>
@@ -142,18 +190,111 @@ function heroHTML() {
   </section>`;
 }
 
+/* 首次绘制：只在进入下载页时调用一次。 */
 function paint() {
   if (!view) return;
-  const top = view.scrollTop;
   view.innerHTML = `<div class="page">
     ${heroHTML()}
     <section class="sect" style="margin-top:22px">
-      ${UI.sectionHead('下载任务', `共 ${state.items.length} 个 · 同时最多 2 个，其余排队`)}
-      ${state.error ? `<div class="banner error" style="margin-bottom:12px">${icon('alert', 18)}<div>${UI.esc(state.error)}</div></div>` : ''}
-      ${listHTML()}
+      ${UI.sectionHead('下载任务', countText())}
+      <div class="dl-err-host"></div>
+      <div class="dl-list-host">${listHTML()}</div>
     </section>
   </div>`;
-  view.scrollTop = top;
+  painted = true;
+}
+
+/* 轮询后的原地更新：不重建 .page，也不触发入场动画。 */
+function sync() {
+  if (!view || !view.isConnected) return;
+  if (!painted || !view.querySelector('.dl-hero')) {
+    paint();
+    return;
+  }
+  const title = view.querySelector('.dl-hero-title');
+  if (title) {
+    const next = heroTitleHTML();
+    if (title.innerHTML !== next) title.innerHTML = next;
+  }
+  const sub = view.querySelector('.dl-hero .upd-sub');
+  if (sub) {
+    const next = heroSubHTML();
+    if (sub.textContent !== next) sub.textContent = next;
+  }
+  const count = view.querySelector('.sect-head .sect-sub');
+  if (count && count.textContent !== countText()) count.textContent = countText();
+  const errHost = view.querySelector('.dl-err-host');
+  if (errHost) {
+    const next = state.error ? `<div class="banner error" style="margin-bottom:12px">${icon('alert', 18)}<div>${UI.esc(state.error)}</div></div>` : '';
+    if (errHost.innerHTML !== next) errHost.innerHTML = next;
+  }
+
+  const host = view.querySelector('.dl-list-host');
+  if (!host) return;
+  if (!state.items.length) {
+    if (!host.querySelector('.dl-empty')) host.innerHTML = listHTML();
+    return;
+  }
+  let list = host.querySelector('.dl-list');
+  if (!list) {
+    host.innerHTML = `<div class="dl-list"></div>`;
+    list = host.querySelector('.dl-list');
+  }
+  const ids = new Set(state.items.map((i) => i.id));
+  list.querySelectorAll('[data-dl]').forEach((card) => {
+    if (!ids.has(card.dataset.dl)) card.remove();
+  });
+  state.items.forEach((item, index) => {
+    let card = list.querySelector(`[data-dl="${item.id}"]`);
+    const stateChanged = card && card.dataset.state !== item.state;
+    if (!card || stateChanged) {
+      if (card) {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = taskHTML(item).trim();
+        const next = tpl.content.firstElementChild;
+        card.replaceWith(next);
+        card = next;
+      } else {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = taskHTML(item).trim();
+        list.insertBefore(tpl.content.firstElementChild, list.children[index] || null);
+        card = list.children[index];
+      }
+    } else {
+      updateCard(card, item);
+    }
+    if (list.children[index] !== card) list.insertBefore(card, list.children[index] || null);
+  });
+}
+
+function updateCard(card, item) {
+  const bar = card.querySelector('.dl-bar i');
+  const width = `${barWidth(item)}%`;
+  if (bar && bar.style.width !== width) bar.style.width = width;
+
+  const meta = card.querySelector('.dl-meta');
+  if (!meta) return;
+  const stat = meta.querySelector('[data-role="stat"]');
+  if (stat) {
+    const next = statHTML(item);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = next;
+    const text = tmp.textContent;
+    if (stat.textContent !== text) stat.textContent = text;
+  }
+  const speed = meta.querySelector('[data-role="speed"]');
+  if (speed) {
+    const connecting = item.state === 'downloading' && item.received <= 0;
+    const text = item.state === 'downloading' ? (connecting ? '等待首包…' : fmtSpeed(item.speed)) : '';
+    if (speed.hidden !== (item.state !== 'downloading')) speed.hidden = item.state !== 'downloading';
+    if (text && speed.textContent !== text) speed.textContent = text;
+  }
+  const eta = meta.querySelector('[data-role="eta"]');
+  if (eta) {
+    const text = fmtEta(item);
+    if (eta.hidden !== !text) eta.hidden = !text;
+    if (text && eta.textContent !== text) eta.textContent = text;
+  }
 }
 
 async function refresh(silent = false) {
@@ -165,7 +306,8 @@ async function refresh(silent = false) {
   } catch (e) {
     if (!silent) state.error = e.message || '下载队列加载失败';
   }
-  paint();
+  if (!painted) paint();
+  else sync();
 }
 
 function scheduleNext(ms) {
@@ -175,14 +317,14 @@ function scheduleNext(ms) {
     if (S.route !== 'downloads' || !view || !view.isConnected) return;
     await refresh(true);
     const active = state.items.some((i) => i.state === 'downloading' || i.state === 'queued');
-    scheduleNext(active ? 800 : 2400);
+    scheduleNext(active ? 800 : 5000);
   }, ms);
 }
 
 export async function renderDownloads(v) {
   view = v;
+  painted = false;
   await refresh();
-  paint();
   scheduleNext(800);
 }
 
