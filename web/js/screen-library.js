@@ -1,5 +1,5 @@
 import { api, clearApiCache } from './api.js';
-import { S } from './store.js';
+import { S, visibleTasks } from './store.js';
 import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { R } from './runtime.js';
@@ -9,7 +9,7 @@ export async function renderLibrary(view) {
   view.innerHTML = `<div class="page">
     ${UI.sectionHead('作品库', '缩略图用 previewThumbnailUrl，打开大图才请求详情', `<button class="icon-btn" data-act="lib-refresh" data-tip="刷新">${icon('refresh', 22)}</button><button class="btn tonal sm" data-act="nav" data-route="create">${icon('plus', 16)}新建</button>`)}
     <div class="tabs">
-      <button class="tab ${tab === 'recent' ? 'selected' : ''}" data-act="lib-tab" data-tab="recent">最近生成 <span class="muted num">${S.tasks.length || ''}</span></button>
+      <button class="tab ${tab === 'recent' ? 'selected' : ''}" data-act="lib-tab" data-tab="recent">最近生成 <span class="muted num" id="libRecentCount">${visibleTasks(S.tasks).length || ''}</span></button>
       <button class="tab ${tab === 'gallery' ? 'selected' : ''}" data-act="lib-tab" data-tab="gallery">我的作品库</button>
     </div>
     <div id="libraryBody">${UI.skeletonPage(2)}</div>
@@ -22,6 +22,30 @@ export async function renderLibrary(view) {
   } else {
     await loadGallery(body);
   }
+}
+
+export function repaintLibrary() {
+  paintRecentCount();
+  const body = document.getElementById('libraryBody');
+  if (!body) return;
+  if (S.library.tab === 'recent') paintRecent(body);
+  else if (S.library.gallery) paintGallery(body);
+}
+
+export async function reloadGalleryQuiet() {
+  if (S.library.tab !== 'gallery') return;
+  S.library.gallery = null;
+  const body = document.getElementById('libraryBody');
+  if (!body) return;
+  try {
+    S.library.gallery = await api('/local/gallery?offset=0&limit=24');
+    paintGallery(body);
+  } catch {}
+}
+
+function paintRecentCount() {
+  const el = document.getElementById('libRecentCount');
+  if (el) el.textContent = String(visibleTasks(S.tasks).length || '');
 }
 
 function paintRecent(body) {
@@ -48,7 +72,7 @@ function paintGallery(body) {
   const g = S.library.gallery;
   if (!g) return;
   const quota = g.quota || {};
-  const items = g.items || [];
+  const items = visibleTasks(g.items || []);
   const freeLimited = Number(quota.recentLimit) === 0;
   const banner = freeLimited
     ? `<div class="banner warn" style="margin-bottom:16px">${icon('info', 20)}<div>当前套餐的作品库保留位为 <b>0</b>，所以这里通常为空。历史作品仍可在「最近生成」和任务列表里找到；升级 Plus 及以上可获得作品库配额。</div></div>`
@@ -66,6 +90,7 @@ function paintGallery(body) {
 }
 
 export function updateLibraryTasks() {
+  paintRecentCount();
   if (S.library.tab !== 'recent') return;
   const grid = document.getElementById('libraryGrid');
   if (grid) UI.paintTaskGrid(grid, [...S.tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));

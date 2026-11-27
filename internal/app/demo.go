@@ -4,20 +4,50 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
+
+// demoDeleteDelay simulates a slow upstream DELETE so the optimistic delete
+// path can be exercised without touching a real account.
+const demoDeleteDelay = 6 * time.Second
+
+var demoDeleted sync.Map
 
 // demoMiddleware serves fixture data for authenticated screens when the app is
 // started with -demo. Public endpoints (models, community, packages) still go
 // to the real site, so the preview always tracks live catalog data.
 func (s *Server) demoMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.Demo && r.Method == http.MethodGet {
-			if data, ok := demoFixture(r.URL.Path); ok {
+		if s.Demo {
+			if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/local/generations/") {
+				id := strings.TrimPrefix(r.URL.Path, "/local/generations/")
+				select {
+				case <-time.After(demoDeleteDelay):
+				case <-r.Context().Done():
+					return
+				}
+				demoDeleted.Store(id, true)
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.Header().Set("Cache-Control", "no-store")
-				_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": data})
+				_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 				return
+			}
+			if r.Method == http.MethodGet {
+				if id, ok := strings.CutPrefix(r.URL.Path, "/local/generations/"); ok && id != "" {
+					if _, gone := demoDeleted.Load(id); gone {
+						w.Header().Set("Content-Type", "application/json; charset=utf-8")
+						w.Header().Set("Cache-Control", "no-store")
+						_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": map[string]any{"status": 404, "code": "not_found", "message": "请求的内容不存在或已被删除"}})
+						return
+					}
+				}
+				if data, ok := demoFixture(r.URL.Path); ok {
+					w.Header().Set("Content-Type", "application/json; charset=utf-8")
+					w.Header().Set("Cache-Control", "no-store")
+					_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": data})
+					return
+				}
 			}
 		}
 		next.ServeHTTP(w, r)
@@ -61,6 +91,21 @@ func demoModelParams(raw json.RawMessage) json.RawMessage {
 		return raw
 	}
 	return out
+}
+
+func demoVisibleTasks(tasks []any) []any {
+	visible := make([]any, 0, len(tasks))
+	for _, t := range tasks {
+		if m, ok := t.(map[string]any); ok {
+			if id, ok := m["id"].(string); ok {
+				if _, gone := demoDeleted.Load(id); gone {
+					continue
+				}
+			}
+		}
+		visible = append(visible, t)
+	}
+	return visible
 }
 
 func demoFixture(path string) (any, bool) {	now := time.Now()
@@ -132,7 +177,7 @@ func demoFixture(path string) (any, bool) {	now := time.Now()
 	case "/local/accounts":
 		return accounts, true
 	case "/local/generations/tasks":
-		return map[string]any{"tasks": tasks}, true
+		return map[string]any{"tasks": demoVisibleTasks(tasks)}, true
 	case "/local/generations/activity":
 		return map[string]any{"activity": map[string]any{"activeCount": 1, "limit": 3}}, true
 	case "/local/profile/summary":
@@ -150,7 +195,14 @@ func demoFixture(path string) (any, bool) {	now := time.Now()
 	case "/local/oauth/devices":
 		return devices, true
 	case "/local/gallery":
-		return map[string]any{"quota": map[string]any{"tier": "plus", "recentLimit": 2, "recentRetentionDays": 2}, "items": []any{}, "likeCount": 12, "recentCount": 6, "hasMore": false, "nextOffset": 0}, true
+		galleryTasks := demoVisibleTasks(tasks)
+		items := make([]any, 0, len(galleryTasks))
+		for _, t := range galleryTasks {
+			if m, ok := t.(map[string]any); ok && m["status"] == "success" {
+				items = append(items, m)
+			}
+		}
+		return map[string]any{"quota": map[string]any{"tier": "plus", "recentLimit": 4, "recentRetentionDays": 2}, "items": items, "likeCount": 12, "recentCount": len(items), "hasMore": false, "nextOffset": 0}, true
 	case "/local/coverage", "/local/log", "/local/config", "/local/health":
 		return nil, false
 	}

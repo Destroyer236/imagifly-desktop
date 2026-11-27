@@ -123,6 +123,7 @@ export async function api(path, opts = {}) {
 
 async function fetchAPI(path, opts, method, ttl, epoch) {
   const init = { method, headers: {} };
+  if (opts.timeout) init.signal = AbortSignal.timeout(opts.timeout);
   if (opts.form) {
     init.body = opts.form;
   } else if (opts.body !== undefined) {
@@ -133,6 +134,12 @@ async function fetchAPI(path, opts, method, ttl, epoch) {
   try {
     res = await fetch(path, init);
   } catch (e) {
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      const err = new Error('请求超时，请稍后重试');
+      err.status = 0;
+      err.code = 'CLIENT_TIMEOUT';
+      throw err;
+    }
     const err = new Error('本地服务未响应，请检查应用是否仍在运行');
     err.status = 0;
     err.code = 'LOCAL_DOWN';

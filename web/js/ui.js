@@ -1,5 +1,5 @@
 import { icon } from './icons.js';
-import { S, modelLabel } from './store.js';
+import { S, modelLabel, visibleTasks } from './store.js';
 import { api } from './api.js';
 
 export const esc = (v) =>
@@ -456,11 +456,12 @@ export function elapsedText(item) {
 
 export function paintTaskGrid(container, items) {
   if (!container) return;
-  if (!items || !items.length) {
+  const visible = visibleTasks(items);
+  if (!visible.length) {
     container.innerHTML = emptyState('image', '还没有作品', '写下第一段提示词，生成结果会出现在这里。');
     return;
   }
-  container.innerHTML = items.map(taskCard).join('');
+  container.innerHTML = visible.map(taskCard).join('');
 }
 
 export function activeCard(item) {

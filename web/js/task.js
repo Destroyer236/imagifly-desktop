@@ -1,8 +1,9 @@
 import { api } from './api.js';
-import { S, modelLabel } from './store.js';
+import { S, modelLabel, hideGeneration, unhideGeneration } from './store.js';
 import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { R } from './runtime.js';
+import { repaintLibrary, reloadGalleryQuiet } from './screen-library.js';
 
 export async function openTaskSheet(id) {
   let timer = null;
@@ -127,15 +128,40 @@ export async function openTaskSheet(id) {
     foot.querySelector('#t-del')?.addEventListener('click', async () => {
       const ok = await UI.confirmSheet({ title: '删除作品', text: '删除后无法恢复，确定继续？', confirm: '删除', danger: true });
       if (!ok) return;
+      // Remove the card first, then talk to the server. The upstream DELETE can
+      // take several seconds; waiting for it made the button look dead and the
+      // card stayed on screen (the list snapshot was repainted from cache).
+      stop();
+      hideGeneration(item.id);
+      try { sheetRef.close(); } catch {}
+      repaintLibrary();
+      UI.toast('已删除', 'ok');
+      let result = 'ok';
       try {
-        await api('/local/generations/' + encodeURIComponent(item.id), { method: 'DELETE' });
-        UI.toast('已删除', 'ok');
-        sheetRef.close();
-        R.refreshTasks(true);
-        R.rerender();
+        await api('/local/generations/' + encodeURIComponent(item.id), { method: 'DELETE', timeout: 12000 });
       } catch (e) {
-        UI.toast(e.message, 'error');
+        if (e.code === 'CLIENT_TIMEOUT') {
+          result = 'pending';
+        } else {
+          unhideGeneration(item.id);
+          repaintLibrary();
+          UI.toast('删除失败：' + e.message, 'error');
+          R.refreshTasks(true);
+          reloadGalleryQuiet();
+          return;
+        }
       }
+      S.library.gallery = null;
+      if (result === 'pending') {
+        UI.toast('删除请求超时，已转入后台处理', 'warn');
+        setTimeout(() => {
+          R.refreshTasks(true);
+          reloadGalleryQuiet();
+        }, 10000);
+        return;
+      }
+      R.refreshTasks(true);
+      reloadGalleryQuiet();
     });
   };
 
