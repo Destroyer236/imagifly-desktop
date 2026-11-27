@@ -31,7 +31,7 @@ export const S = {
   },
   refs: [],
   library: { tab: 'recent', gallery: null, offset: 0, loaded: false },
-  community: { mode: 'image', kind: 'community', tag: '', q: '', offset: 0, items: [], tags: [], hasMore: false, loaded: false, hero: [], follows: new Set() },
+  community: { mode: 'image', kind: 'community', q: '', offset: 0, items: [], hasMore: false, loaded: false, hero: [], follows: new Set() },
   account: { summary: null, history: null, notifications: null, referral: null, share: null, packages: null, devices: null, accounts: null, follows: null, gallery: null, mineImages: null, mineVideos: null, relationKind: 'following', relationItems: [], receivedWorks: [], likedWorks: [], publicWorks: [], loaded: false },
   dev: { keys: null, coverage: null, log: null, selftest: null },
 };
@@ -47,7 +47,7 @@ export function resetSession() {
   S.tasks = [];
   S.library = { tab: 'recent', gallery: null, offset: 0, loaded: false };
   S.account = { summary: null, history: null, notifications: null, referral: null, share: null, packages: null, devices: null, accounts: null, follows: null, gallery: null, mineImages: null, mineVideos: null, relationKind: 'following', relationItems: [], receivedWorks: [], likedWorks: [], publicWorks: [], loaded: false };
-  S.community = { mode: 'image', kind: 'community', tag: '', q: '', offset: 0, items: [], tags: [], hasMore: false, loaded: false, hero: [], follows: new Set() };
+  S.community = { mode: 'image', kind: 'community', q: '', offset: 0, items: [], hasMore: false, loaded: false, hero: [], follows: new Set() };
   S.dev = { keys: null, coverage: null, log: null, selftest: null };
 }
 

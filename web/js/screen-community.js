@@ -44,15 +44,12 @@ async function loadFeed() {
   const c = S.community;
   const endpoint = c.kind === 'dynamic' ? '/local/community/dynamic' : '/local/community';
   const q = new URLSearchParams({ mode: c.mode });
-  if (c.tag) q.set('tag', c.tag);
   if (c.q) q.set('q', c.q);
   if (c.offset) q.set('offset', String(c.offset));
   const data = await api(endpoint + '?' + q.toString());
-  c.tags = data.tags || c.tags;
   c.items = c.offset ? [...c.items, ...(data.items || [])] : data.items || [];
   c.hasMore = data.hasMore;
   c.nextOffset = data.nextOffset || 0;
-  c.selectedTag = data.selectedTag || null;
   c.query = data.query || c.q;
   c.loaded = true;
 }
@@ -90,11 +87,10 @@ function paint(view) {
         }).join('')}</div></section>`
     : '';
 
-  const tags = [{ id: '', name: '全部' }, ...(c.tags || [])];
   view.innerHTML = `<div class="page">
     ${hero}
     <section class="sect" style="margin-top:${hero ? '26px' : '0'}">
-      ${UI.sectionHead(c.kind === 'dynamic' ? '关注动态' : '社区作品', c.kind === 'dynamic' ? 'GET /api/community/dynamic · 关注作者的新作品' : '每页 12 条 · mode / tag / q / offset', `<span class="pill">${icon('globe', 13)}${c.items.length} 条</span>`)}
+      ${UI.sectionHead(c.kind === 'dynamic' ? '关注动态' : '社区作品', c.q ? `搜索「${UI.esc(c.q)}」` : (c.kind === 'dynamic' ? '关注作者的新作品 · GET /api/community/dynamic' : '每页 12 条 · GET /api/community'), `<span class="pill">${icon('globe', 13)}${c.items.length} 条</span>`)}
       <div class="tabs" style="margin-bottom:12px">
         <button class="tab ${c.kind !== 'dynamic' ? 'selected' : ''}" data-act="com-kind" data-kind="community">社区作品</button>
         <button class="tab ${c.kind === 'dynamic' ? 'selected' : ''}" data-act="com-kind" data-kind="dynamic">关注动态</button>
@@ -105,9 +101,7 @@ function paint(view) {
           <button class="seg-item ${c.mode === 'video' ? 'selected' : ''}" data-act="com-mode" data-value="video">${icon('movie', 18)}视频</button>
         </div>
         <div class="field-box">${icon('search', 18)}<input id="comSearch" placeholder="搜索提示词关键词…" value="${UI.esc(c.q || '')}"><button class="icon-btn sm" data-act="com-search" data-tip="搜索">${icon('send', 18)}</button></div>
-      </div>
-      <div class="tag-scroll" style="margin-top:10px">
-        ${tags.map((t) => `<button class="chip ${String(c.tag || '') === String(t.id) ? 'selected' : ''}" data-act="com-tag" data-id="${UI.esc(t.id)}">${UI.esc(t.name)}</button>`).join('')}
+        ${c.q ? `<button class="btn text sm" data-act="com-search-clear">${icon('close', 16)}清除搜索</button>` : ''}
       </div>
       <div class="grid cards" id="comGrid" style="margin-top:14px"></div>
       ${c.hasMore ? `<div style="display:flex;justify-content:center;margin-top:22px"><button class="btn tonal" data-act="com-more">${icon('chevronDown', 18)}加载更多</button></div>` : ''}
@@ -117,7 +111,9 @@ function paint(view) {
   const grid = view.querySelector('#comGrid');
   grid.innerHTML = c.items.length
     ? c.items.map(card).join('')
-    : UI.emptyState('globe', c.kind === 'dynamic' ? '关注的人还没有新作品' : '这个筛选下暂时没有作品', c.kind === 'dynamic' ? '去社区关注一些创作者，他们的新作品会出现在这里。' : '换一个标签或关键词试试。');
+    : (c.q
+      ? UI.emptyState('search', `没有匹配「${UI.esc(c.q)}」的作品`, '换个关键词试试，或点「清除搜索」回到全部作品。')
+      : UI.emptyState('globe', c.kind === 'dynamic' ? '关注的人还没有新作品' : '这里暂时没有作品', c.kind === 'dynamic' ? '去社区关注一些创作者，他们的新作品会出现在这里。' : '切换图片/视频，或换个关键词试试。'));
 
   const search = view.querySelector('#comSearch');
   search?.addEventListener('keydown', (e) => {
@@ -128,15 +124,18 @@ function paint(view) {
   });
 }
 
-function applySearch(value) {
+async function applySearch(value) {
   const c = S.community;
-  const next = String(value || '').trim();
-  if (next === c.q) return;
+  const next = String(value || '').replace(/\s+/g, ' ').trim();
+  if (next === c.q && c.items.length) return;
   c.q = next;
   c.offset = 0;
   c.loaded = false;
   c.items = [];
-  renderCommunity(document.getElementById('view'));
+  const view = document.getElementById('view');
+  await renderCommunity(view);
+  // 搜索后把结果区块滚到视口顶部，避免结果落在可视区外
+  document.getElementById('comGrid')?.closest('.sect')?.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 export async function openCommunity(id) {
@@ -328,14 +327,8 @@ export const communityActions = {
     S.community.loaded = false;
     renderCommunity(document.getElementById('view'));
   },
-  'com-tag': (d) => {
-    S.community.tag = d.id || '';
-    S.community.offset = 0;
-    S.community.items = [];
-    S.community.loaded = false;
-    renderCommunity(document.getElementById('view'));
-  },
   'com-search': () => applySearch(document.getElementById('comSearch')?.value || ''),
+  'com-search-clear': () => applySearch(''),
   'com-more': async () => {
     const c = S.community;
     c.offset = c.nextOffset || c.items.length;

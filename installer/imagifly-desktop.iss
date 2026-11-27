@@ -1,9 +1,9 @@
 ﻿; Imagifly Desktop 安装脚本（Inno Setup 6）
-; 用法：ISCC.exe /DAppVersion=1.2.15 imagifly-desktop.iss
+; 用法：ISCC.exe /DAppVersion=<版本号> imagifly-desktop.iss
 ; 依赖：..\imagifly-desktop.exe（先跑 build.ps1）、..\assets\app.ico、ChineseSimplified.isl
 
 #ifndef AppVersion
-  #define AppVersion "1.2.15"
+  #define AppVersion "1.2.16"
 #endif
 
 #define AppName "Imagifly Desktop"

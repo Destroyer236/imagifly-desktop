@@ -552,7 +552,7 @@ a.link { color: var(--primary); }
 .card.click:hover { background: var(--surface-high); transform: translateY(-2px); }
 .card.click:active { transform: scale(.995); }
 
-.sect { margin-top: 30px; animation: rise-in .3s var(--ease-emph) both; }
+.sect { margin-top: 30px; animation: rise-in .3s var(--ease-emph) both; scroll-margin-top: 26px; }
 .sect + .sect { animation-delay: .05s; }
 .sect-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
 .sect-title { font-family: var(--font-display); font-size: 19px; font-weight: 620; letter-spacing: -.01em; }
@@ -723,7 +723,6 @@ a.link { color: var(--primary); }
 
 .search-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .search-row .field-box { min-width: 240px; flex: 1; max-width: 420px; }
-.tag-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: thin; }
 
 /* --- account / credits / settings --------------------------------------- */
 .account-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
