@@ -11,7 +11,7 @@ function versionLabel() {
 
 export async function renderAbout(view) {
   const version = versionLabel();
-  view.innerHTML = `<div class="page about-page">
+  view.innerHTML = `<div class="page pref-page about-page">
     ${prefsTabsHTML('about')}
     <section class="about-hero">
       <div class="about-hero-top">

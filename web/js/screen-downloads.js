@@ -317,7 +317,7 @@ function scheduleNext(ms) {
     if (S.route !== 'downloads' || !view || !view.isConnected) return;
     await refresh(true);
     const active = state.items.some((i) => i.state === 'downloading' || i.state === 'queued');
-    scheduleNext(active ? 800 : 5000);
+    scheduleNext(active ? 500 : 5000);
   }, ms);
 }
 
@@ -325,7 +325,7 @@ export async function renderDownloads(v) {
   view = v;
   painted = false;
   await refresh();
-  scheduleNext(800);
+  scheduleNext(500);
 }
 
 export const downloadActions = {
@@ -333,25 +333,25 @@ export const downloadActions = {
     await api('/local/downloads/cancel', { method: 'POST', body: { id: d.id } });
     UI.toast('已取消下载', 'info');
     await refresh();
-    scheduleNext(800);
+    scheduleNext(500);
   },
   'dl-remove': async (d) => {
     await api('/local/downloads/remove', { method: 'POST', body: { id: d.id } });
     await refresh();
-    scheduleNext(800);
+    scheduleNext(500);
   },
   'dl-retry': async (d) => {
     await api('/local/downloads', { method: 'POST', body: { url: d.url, name: d.name } });
     if (d.id) await api('/local/downloads/remove', { method: 'POST', body: { id: d.id } }).catch(() => {});
     UI.toast('已重新加入下载队列', 'ok');
     await refresh();
-    scheduleNext(800);
+    scheduleNext(500);
   },
   'dl-clear': async () => {
     const res = await api('/local/downloads/clear', { method: 'POST', body: {} });
     UI.toast(`已清除 ${res.removed || 0} 个已结束任务`, 'ok');
     await refresh();
-    scheduleNext(800);
+    scheduleNext(500);
   },
   'dl-open-dir': () => {
     const dir = S.cfg?.downloadDir || '';

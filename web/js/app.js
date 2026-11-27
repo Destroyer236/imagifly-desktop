@@ -191,7 +191,7 @@ async function navigate(route) {
   const view = document.getElementById('view');
   if (!view) return;
   view.innerHTML = PREF_GROUP.has(route)
-    ? `<div class="page">${prefsTabsHTML(route)}${UI.skeletonPage(4)}</div>`
+    ? `<div class="page pref-page">${prefsTabsHTML(route)}${UI.skeletonPage(4)}</div>`
     : UI.skeletonPage(4);
   view.scrollTop = 0;
   try {

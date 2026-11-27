@@ -77,7 +77,7 @@ export async function renderCredits(view) {
 
 export async function renderSettings(view) {
   const errors = await loadBlocks(settingsRequests(), view);
-  view.innerHTML = `<div class="page narrow">
+  view.innerHTML = `<div class="page pref-page">
     ${prefsTabsHTML('settings')}
     ${errorBanner(errors)}
     <div class="settings-stack">

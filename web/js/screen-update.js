@@ -116,8 +116,8 @@ function progressHTML() {
       <div class="card pad-sm upd-progress-card">
         <div class="upd-bar"><i style="width:${pct}%"></i></div>
         <div class="upd-progress-meta">
-          <span>${fmtBytes(p.received)}${p.total > 0 ? ' / ' + fmtBytes(p.total) : ''}${p.total > 0 ? `（${pct}%）` : ''}</span>
-          <span class="muted">${fmtSpeed(p.speed)}</span>
+          <span data-role="dl-stat">${fmtBytes(p.received)}${p.total > 0 ? ' / ' + fmtBytes(p.total) : ''}${p.total > 0 ? `（${pct}%）` : ''}</span>
+          <span class="muted" data-role="dl-speed">${fmtSpeed(p.speed)}</span>
           <button class="btn text sm" data-act="upd-cancel" style="margin-left:auto">取消</button>
         </div>
       </div>
@@ -222,7 +222,7 @@ function tipsHTML() {
 
 function paint() {
   if (!view) return;
-  view.innerHTML = `<div class="page upd-page">
+  view.innerHTML = `<div class="page pref-page upd-page">
     ${prefsTabsHTML('update')}
     ${heroHTML()}
     <div class="upd-progress-host">${progressHTML()}</div>
@@ -230,6 +230,8 @@ function paint() {
     ${notesHTML()}
     ${tipsHTML()}
   </div>`;
+  const host = view.querySelector('.upd-progress-host');
+  if (host) host.dataset.state = state.progress?.state || 'idle';
 }
 
 function paintMirrors() {
@@ -241,7 +243,22 @@ function paintProgress() {
   if (!view) return;
   const host = view.querySelector('.upd-progress-host');
   if (!host) return;
+  const p = state.progress;
+  const sameDownloading = p?.state === 'downloading'
+    && host.dataset.state === 'downloading'
+    && host.querySelector('.upd-progress-card .upd-bar');
+  if (sameDownloading) {
+    const pct = p.total > 0 ? Math.min(100, Math.round((p.received / p.total) * 100)) : 0;
+    const bar = host.querySelector('.upd-bar > i');
+    if (bar) bar.style.width = `${pct}%`;
+    const stat = host.querySelector('[data-role="dl-stat"]');
+    if (stat) stat.textContent = `${fmtBytes(p.received)}${p.total > 0 ? ' / ' + fmtBytes(p.total) : ''}${p.total > 0 ? `（${pct}%）` : ''}`;
+    const speed = host.querySelector('[data-role="dl-speed"]');
+    if (speed) speed.textContent = fmtSpeed(p.speed);
+    return;
+  }
   host.innerHTML = progressHTML();
+  host.dataset.state = p?.state || 'idle';
 }
 
 /* --- data ---------------------------------------------------------------- */
@@ -295,7 +312,7 @@ function startPolling() {
       }
     }
     paintProgress();
-  }, 900);
+  }, 600);
 }
 
 function stopPolling() {
@@ -309,7 +326,7 @@ export async function renderUpdate(el) {
   view = el;
   stopPolling();
   lastToastState = '';
-  el.innerHTML = `<div class="page upd-page">${prefsTabsHTML('update')}${UI.skeletonPage(3)}</div>`;
+  el.innerHTML = `<div class="page pref-page upd-page">${prefsTabsHTML('update')}${UI.skeletonPage(3)}</div>`;
   await Promise.all([loadInfo(), loadStatus()]);
   state.tests = state.tests || null;
   paint();
