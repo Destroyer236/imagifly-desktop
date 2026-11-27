@@ -25,6 +25,7 @@ export const S = {
     duration: '',
     fps: 0,
     seed: '',
+    extra: {},
     visibility: 'public',
     advanced: false,
     source: null,

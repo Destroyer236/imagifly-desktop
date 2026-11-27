@@ -3,6 +3,7 @@ import { S, modelInfo, modelLabel, imgModels, videoModels } from './store.js';
 import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { R } from './runtime.js';
+import { extraParams, defaultExtraValue } from './model-schema.js';
 
 const IMG_RATIOS = ['1:1', '4:3', '3:2', '16:9', '9:16', '2:3', '3:4', 'Auto'];
 const QUALITIES = [
@@ -19,6 +20,34 @@ function currentVideoModel() {
 }
 function currentImageModel() {
   return modelInfo('image', S.compose.imageModel);
+}
+
+// 图片比例/质量优先读上游目录：上游加一档比例或画质，桌面端刷新即出现。
+function imageRatios() {
+  const m = currentImageModel();
+  const raw = m?.aspectRatios || m?.ratioOptions;
+  const list = Array.isArray(raw)
+    ? raw.map((r) => (typeof r === 'string' ? r : r?.value || r?.id || r?.ratio || '')).filter(Boolean)
+    : [];
+  return list.length ? list : IMG_RATIOS;
+}
+
+function imageQualities() {
+  const m = currentImageModel();
+  const opts = m?.qualityOptions;
+  const list = Array.isArray(opts)
+    ? opts
+        .map((q) => (typeof q === 'string' ? { id: q, label: q } : { id: String(q?.id ?? q?.value ?? ''), label: String(q?.label ?? q?.id ?? q?.value ?? '') }))
+        .filter((q) => q.id)
+    : [];
+  if (list.length) return list;
+  if (m && Number(m.highCost) && Number(m.highCost) !== Number(m.standardCost)) return QUALITIES;
+  return [QUALITIES[0]];
+}
+
+function extrasSource() {
+  if (S.compose.mode === 'image') return currentImageModel() || {};
+  return { ...(currentVideoModel() || {}), ...(videoSpec() || {}) };
 }
 
 // Seedance exposes variants, each with its own size / duration / price. Older
@@ -59,8 +88,17 @@ function videoCost() {
   return Math.round((unit * secs) / base);
 }
 
-function refLimit() {
-  if (S.compose.mode === 'image') return currentImageModel()?.referenceImageLimit ?? 0;
+// 上游目录里声明的额外参数：用户选中就原样提交，键名去掉 Options 后缀。
+// 上游新增 cameraMotionOptions → 提交 cameraMotion，客户端无需发版。
+function applyExtras(fd) {
+  const spec = extrasSource();
+  for (const p of extraParams(spec)) {
+    const value = S.compose.extra?.[p.key] ?? defaultExtraValue(spec, p);
+    if (value) fd.set(p.formKey, String(value));
+  }
+}
+
+function refLimit() {  if (S.compose.mode === 'image') return currentImageModel()?.referenceImageLimit ?? 0;
   return workflowEntry()?.referenceImageLimit ?? videoSpec()?.referenceImageLimit ?? 0;
 }
 
@@ -111,17 +149,36 @@ function refsHTML() {
   return `<div class="refs">${items}${add}</div>${note ? `<div style="margin-top:8px">${note}</div>` : ''}`;
 }
 
+function extraControlsHTML() {
+  const spec = extrasSource();
+  const params = extraParams(spec);
+  if (!params.length) return '';
+  return params
+    .map((p) => {
+      const value = S.compose.extra?.[p.key] ?? defaultExtraValue(spec, p);
+      const auto = !value;
+      return `<div class="control-group" data-param="${UI.esc(p.key)}"><span>${UI.esc(p.label)}</span><div class="chips">
+        <button class="chip ${auto ? 'selected' : ''}" data-act="create-extra" data-key="${UI.esc(p.key)}" data-value="">自动</button>
+        ${p.options.map((o) => `<button class="chip ${!auto && String(value) === o.value ? 'selected' : ''}" data-act="create-extra" data-key="${UI.esc(p.key)}" data-value="${UI.esc(o.value)}">${UI.esc(o.label)}</button>`).join('')}
+      </div></div>`;
+    })
+    .join('');
+}
+
 function controlsHTML() {
   if (S.compose.mode === 'image') {
     const m = currentImageModel();
     const tiers = m?.resolutionOptions || [];
     const steps = (m?.stepsOptions || []).map(String);
+    const ratios = imageRatios();
+    const qualities = imageQualities();
     return `
-      <div class="control-group"><span>比例</span><div class="chips">${IMG_RATIOS.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${r}">${r}</button>`).join('')}</div></div>
-      <div class="control-group"><span>质量</span><div class="seg sm">${QUALITIES.map((q) => `<button class="seg-item ${S.compose.quality === q.id ? 'selected' : ''}" data-act="create-quality" data-value="${q.id}">${q.label}</button>`).join('')}</div></div>
+      <div class="control-group"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${UI.esc(r)}">${UI.esc(r)}</button>`).join('')}</div></div>
+      <div class="control-group"><span>质量</span><div class="seg sm">${qualities.map((q) => `<button class="seg-item ${S.compose.quality === q.id ? 'selected' : ''}" data-act="create-quality" data-value="${UI.esc(q.id)}">${UI.esc(q.label)}</button>`).join('')}</div></div>
       ${m?.supportsImageCount ? `<div class="control-group"><span>张数</span><div class="stepper"><button data-act="n-dec">−</button><span>${S.compose.n}</span><button data-act="n-inc">＋</button></div></div>` : ''}
       ${tiers.length > 1 ? `<div class="control-group"><span>分辨率</span><div class="chips">${tiers.map((t) => `<button class="chip ${S.compose.resolutionTier === t.id ? 'selected' : ''}" data-act="create-tier" data-value="${t.id}">${t.label || t.id}</button>`).join('')}</div></div>` : ''}
       ${steps.length ? `<div class="control-group"><span>步数</span><div class="chips">${steps.map((s) => `<button class="chip ${String(S.compose.steps) === s ? 'selected' : ''}" data-act="create-steps" data-value="${s}">${s}</button>`).join('')}</div></div>` : ''}
+      ${extraControlsHTML()}
       <div class="control-group"><span>高级</span><button class="chip ${S.compose.advanced ? 'selected' : ''}" data-act="toggle-advanced">${icon('tune', 15)}参数</button></div>`;
   }
 
@@ -141,6 +198,7 @@ function controlsHTML() {
     ${fps.length ? `<div class="control-group"><span>帧率</span><div class="chips">${fps.map((f) => `<button class="chip ${S.compose.fps === f ? 'selected' : ''}" data-act="create-fps" data-value="${f}">${f}fps</button>`).join('')}</div></div>` : ''}
     ${resolutions.length ? `<div class="control-group"><span>分辨率</span><div class="chips">${resolutions.map((r) => `<button class="chip ${S.compose.size === r.size ? 'selected' : ''}" data-act="create-resolution" data-value="${UI.esc(r.size || '')}">${UI.esc(r.label || r.resolution || r.size)}</button>`).join('')}</div></div>` : ''}
     ${ratios.length ? `<div class="control-group"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${r}">${r}</button>`).join('')}</div></div>` : ''}
+    ${extraControlsHTML()}
     <div class="control-group"><span>高级</span><button class="chip ${S.compose.advanced ? 'selected' : ''}" data-act="toggle-advanced">${icon('tune', 15)}参数</button></div>`;
 }
 
@@ -451,6 +509,7 @@ async function doGenerate(view) {
     if (c.size) fd.set('size', c.size);
     fd.set('quality', c.quality || 'standard');
     if (c.visibility === 'private' && canPrivate()) fd.set('communityVisibility', 'private');
+    applyExtras(fd);
     S.refs.forEach((r) => fd.append('ref_image', r.file, r.name));
   } else {
     const vm = currentVideoModel();
@@ -464,6 +523,7 @@ async function doGenerate(view) {
     if (c.size) fd.set('size', c.size);
     if (c.quality) fd.set('quality', c.quality);
     if (c.seed) fd.set('seed', c.seed);
+    applyExtras(fd);
     S.refs.forEach((r) => {
       const field = r.kind === 'firstFrame' ? 'ref_first' : r.kind === 'lastFrame' ? 'ref_last' : r.kind === 'video' ? 'ref_video' : r.kind === 'audio' ? 'ref_audio' : 'ref_image';
       fd.append(field, r.file, r.name);
@@ -568,6 +628,7 @@ export async function renderCreate(view) {
 export const createActions = {
   'create-mode': (d) => {
     S.compose.mode = d.value;
+    S.compose.extra = {};
     if (d.value === 'video') {
       const vm = currentVideoModel();
       const variants = videoVariants(vm);
@@ -592,11 +653,18 @@ export const createActions = {
   'create-variant': (d) => {
     S.compose.variant = d.value;
     S.refs = [];
+    S.compose.extra = {};
     applyVideoSpec(videoSpec());
     refreshComposer(document.getElementById('view'));
   },
   'create-resolution': (d) => {
     if (d.value) S.compose.size = d.value;
+    refreshComposer(document.getElementById('view'));
+  },
+  'create-extra': (d) => {
+    if (!S.compose.extra) S.compose.extra = {};
+    if (d.value) S.compose.extra[d.key] = d.value;
+    else delete S.compose.extra[d.key];
     refreshComposer(document.getElementById('view'));
   },
   'n-inc': () => { S.compose.n = Math.min(4, S.compose.n + 1); refreshComposer(document.getElementById('view')); },
@@ -618,6 +686,7 @@ export const createActions = {
     if (S.compose.mode === 'image') S.compose.imageModel = d.id;
     else S.compose.videoModel = d.id;
     S.refs = [];
+    S.compose.extra = {};
     const menu = document.getElementById('modelMenu');
     if (menu) menu.hidden = true;
     // reset per-model values

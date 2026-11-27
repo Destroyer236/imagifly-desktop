@@ -529,6 +529,9 @@ async function boot() {
   const status = document.getElementById('bootStatus');
   const initialRoute = new URLSearchParams(location.search).get('route');
   if (initialRoute && ROUTES[initialRoute]) S.route = initialRoute;
+  // 深链：?mode=video 直接以视频模式打开创作页
+  const initialMode = new URLSearchParams(location.search).get('mode');
+  if (initialMode === 'video' || initialMode === 'image') S.compose.mode = initialMode;
   try {
     const modelsPromise = loadModels().catch(() => {});
     const [cfg, sess] = await Promise.all([api('/local/config'), api('/local/session')]);

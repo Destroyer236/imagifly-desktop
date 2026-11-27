@@ -11,7 +11,7 @@ imagifly.net 的 Windows 桌面客户端。Go 单文件后端 + WebView2 原生�
 
 | 模块 | 能力 |
 | --- | --- |
-| 创作 | 图片/视频生成、模型与参数联动、参考图/首末帧/参考视频音频、Seedance 2.0/2.5 变体、成本预览、提示词优化、并发位与 429 提示 |
+| 创作 | 图片/视频生成、模型与参数联动、参考图/首末帧/参考视频音频、Seedance 2.0/2.5 变体、成本预览、提示词优化、并发位与 429 提示、上游参数自动同步 |
 | 作品 | 最近生成、作品库、自动轮询、详情/下载/删除/复制提示词、可见性、二创复用 |
 | 社区 | 今日精选、社区/关注动态、图片/视频筛选、搜索（带清除与关键词回显）、点赞、关注、举报、二创登记、详情、下载 |
 | 积分 | 额度仪表、签到、额度构成与流水、套餐与 Stripe 支付、邀请返利 |
@@ -39,7 +39,7 @@ cd imagifly-desktop
 $env:GOPROXY = 'https://goproxy.cn,direct'
 
 .\build.ps1            # 生成 imagifly-desktop.exe
-.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.17-win64.zip
+.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.18-win64.zip
 .\build.ps1 -Test      # 构建前先跑 go test ./...
 ```
 
@@ -70,14 +70,14 @@ GitHub Releases 提供两个包：
 .\build.ps1 -Package
 
 # 免安装版
-$stage = 'dist\ImagiflyDesktop-1.2.17-win64-portable'
+$stage = 'dist\ImagiflyDesktop-1.2.18-win64-portable'
 Copy-Item imagifly-desktop.exe $stage
 upx --best --lzma "$stage\imagifly-desktop.exe"
 Copy-Item README.md, LICENSE, API-COVERAGE.md $stage
-Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.17-win64-portable.zip' -CompressionLevel Optimal
+Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.18-win64-portable.zip' -CompressionLevel Optimal
 
 # 安装版
-ISCC.exe /DAppVersion=1.2.17 installer\imagifly-desktop.iss
+ISCC.exe /DAppVersion=1.2.18 installer\imagifly-desktop.iss
 ```
 
 `installer/` 里带 `ChineseSimplified.isl`（Inno 官方简体中文语言文件），因此不需要额外安装语言包。安装版内是**未压缩**的 exe，避免 UPX 带来的杀软启发式误报。
@@ -95,6 +95,31 @@ ISCC.exe /DAppVersion=1.2.17 installer\imagifly-desktop.iss
 | 清理 | 新包下载完成时删除目录里其它安装包；安装器启动的新进程带 `--cleanup-installer=<包路径>`，重试删除该包；应用启动时再清理超过 1 小时的遗留包 |
 
 镜像列表写在 `internal/app/update.go` 的 `updateMirrors`；新增镜像只要加一行 `{ID, Name, Prefix, Hint}`，`Prefix` 为空表示直连。注意镜像只加速 `github.com` 资产下载，Release 元数据仍走 `api.github.com`，所以「检查更新」本身需要能连 GitHub API。
+
+## 与上游同步（参数不必发版）
+
+创作参数不是写死在界面里的：模型目录 `/api/models` 通过 `/local/models` 原样透传，前端按目录里的字段渲染控件、按用户选择提交。上游改价格、时长档、分辨率档、fps、参考素材上限、变体，客户端**重启或模型缓存过期（10 分钟）**后即同步，连额度估算一起变。
+
+| 上游字段 | 桌面端行为 |
+| --- | --- |
+| `<name>Options` 数组（如 `durationOptions`、`fpsOptions`、新增的 `cameraMotionOptions`） | 自动生成一组 chips，提交字段为去掉 `Options` 后缀的 `<name>`（`cameraMotionOptions` → `cameraMotion`） |
+| `aspectRatios` / `ratioOptions` | 图片与视频的比例都以目录为准；目录没给才回退内置常用比例 |
+| `qualityOptions` | 画质档位改为目录里的档位；没有该字段时按 `standardCost` / `highCost` 显示标准、高清 |
+| `resolutionOptions` / `stepsOptions` / `variants` / `workflowFormats` | 分辨率、步数、版本、工作流按目录渲染（原有逻辑不变） |
+| 数值/字符串字段（`imagiflyCredits`、`durationPricingBaseSeconds`、`referenceImageLimit`…） | 直接参与额度估算与上限校验 |
+
+未知参数在提交前会经过 `CleanExtra`：键名必须是 `[A-Za-z][A-Za-z0-9_]*`，值不超过 120 字、不含换行，且不能覆盖 `prompt/model/n/size/ratio/variant/...` 这些保留字段（`internal/imagiapi/generate.go` 的 `reservedFormFields`）。网页层与本地服务两条路径都走同一份清洗规则。
+
+新增参数只在**上游以 `<x>Options` 数组**形式声明时才能零发版生效；如果上游给的是嵌套对象或布尔开关（例如 `advanced: {tiling: true}`），现有通用渲染不会自动展开，需要按该结构补一个控件分支——这种情况才需要一次新版本，可用「更新」页推下去。
+
+`-demo` 预览会额外注入 `cameraMotionOptions`、`qualityOptions`、`lightingOptions` 与一组 `aspectRatios`（`internal/app/demo.go` 的 `demoModelParams`），用来验证「上游加字段 → 界面自动出现」这条路；真实目录不受影响。
+
+回归测试：
+
+```powershell
+node scripts/test-model-schema.mjs   # 目录 → 控件映射（含字符串数组、保留字段、默认值）
+go test ./...                        # 含 extras 透传与 multipart 清洗用例
+```
 
 ## 使用
 

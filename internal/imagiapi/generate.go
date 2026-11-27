@@ -42,6 +42,11 @@ type ImageOptions struct {
 	ResponseFormat      string
 	CommunityVisibility string
 
+	// Extra carries parameters the upstream model catalog declares but this
+	// build has no typed field for (for example a newly added cameraMotion).
+	// It is validated by CleanExtra and merged into the request body/form.
+	Extra map[string]string
+
 	SubmissionID string
 	BatchID      string
 	RequestIndex int
@@ -63,6 +68,9 @@ type VideoOptions struct {
 	Ratio          string
 	Quality        string
 	Seed           int64
+
+	// Extra carries model-catalog parameters this build has no typed field for.
+	Extra map[string]string
 
 	SubmissionID string
 	BatchID      string
@@ -110,6 +118,7 @@ func (c *Client) GenerateImage(ctx context.Context, o ImageOptions) (json.RawMes
 			fields[key] = value
 		}
 	}
+	mergeExtra(fields, o.Extra)
 
 	images := filterRefs(o.References, "image")
 	if len(images) == 0 {
@@ -165,6 +174,7 @@ func (c *Client) GenerateVideo(ctx context.Context, o VideoOptions) (json.RawMes
 	if o.Seed != 0 {
 		fields["seed"] = o.Seed
 	}
+	mergeExtra(fields, o.Extra)
 
 	refs := o.References
 	if len(refs) == 0 {
@@ -246,4 +256,67 @@ func DecodeImageSize(data []byte) (int, int) {
 		return 0, 0
 	}
 	return cfg.Width, cfg.Height
+}
+
+// --- extra (model-catalog driven) parameters --------------------------------
+
+// reservedFormFields are handled by the typed option structs above. Extra keys
+// may never shadow them, otherwise the web layer could override prompt/model.
+var reservedFormFields = map[string]bool{
+	"prompt": true, "negativeprompt": true, "model": true, "n": true, "variant": true,
+	"workflowformat": true, "duration": true, "fps": true, "size": true, "ratio": true,
+	"quality": true, "seed": true, "resolutiontier": true, "steps": true,
+	"outputformat": true, "responseformat": true, "communityvisibility": true,
+	"batchid": true, "submissionid": true, "requestindex": true, "requestcount": true,
+	"referenceimages": true, "referenceimagemetadata": true, "referencevideos": true,
+	"referenceaudios": true, "firstframe": true, "lastframe": true,
+	"ref_image": true, "ref_video": true, "ref_audio": true, "ref_first": true, "ref_last": true,
+}
+
+func extraKeyOK(key string) bool {
+	if len(key) == 0 || len(key) > 40 {
+		return false
+	}
+	for i, c := range key {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9', c == '_':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// CleanExtra keeps only scalar, well-shaped key/value pairs. The values come
+// from the upstream model catalog, so they are short tokens rather than free
+// text; anything longer is dropped instead of being forwarded.
+func CleanExtra(raw map[string]string) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for key, value := range raw {
+		if !extraKeyOK(key) || reservedFormFields[strings.ToLower(key)] {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value == "" || len([]rune(value)) > 120 || strings.ContainsAny(value, "\r\n") {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func mergeExtra(fields map[string]any, extra map[string]string) {
+	for key, value := range CleanExtra(extra) {
+		fields[key] = value
+	}
 }

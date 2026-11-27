@@ -431,6 +431,7 @@ func readImageOptions(r *http.Request) (imagiapi.ImageOptions, error) {
 		o.OutputFormat = formValue(r, "outputFormat")
 		o.ResponseFormat = formValue(r, "responseFormat")
 		o.CommunityVisibility = formValue(r, "communityVisibility")
+		o.Extra = formExtras(r)
 		refs, err := collectReferences(r.MultipartForm)
 		if err != nil {
 			return o, err
@@ -438,18 +439,19 @@ func readImageOptions(r *http.Request) (imagiapi.ImageOptions, error) {
 		o.References = refs
 	} else {
 		var in struct {
-			Prompt              string `json:"prompt"`
-			NegativePrompt      string `json:"negativePrompt"`
-			Model               string `json:"model"`
-			N                   int    `json:"n"`
-			Size                string `json:"size"`
-			ResolutionTier      string `json:"resolutionTier"`
-			Steps               string `json:"steps"`
-			Quality             string `json:"quality"`
-			Ratio               string `json:"ratio"`
-			OutputFormat        string `json:"outputFormat"`
-			ResponseFormat      string `json:"responseFormat"`
-			CommunityVisibility string `json:"communityVisibility"`
+			Prompt              string            `json:"prompt"`
+			NegativePrompt      string            `json:"negativePrompt"`
+			Model               string            `json:"model"`
+			N                   int               `json:"n"`
+			Size                string            `json:"size"`
+			ResolutionTier      string            `json:"resolutionTier"`
+			Steps               string            `json:"steps"`
+			Quality             string            `json:"quality"`
+			Ratio               string            `json:"ratio"`
+			OutputFormat        string            `json:"outputFormat"`
+			ResponseFormat      string            `json:"responseFormat"`
+			CommunityVisibility string            `json:"communityVisibility"`
+			Extra               map[string]string `json:"extra"`
 		}
 		if err := decodeJSON(r, &in); err != nil {
 			return o, err
@@ -458,6 +460,7 @@ func readImageOptions(r *http.Request) (imagiapi.ImageOptions, error) {
 		o.N, o.ResolutionTier, o.Steps = in.N, in.ResolutionTier, in.Steps
 		o.Quality, o.Ratio, o.OutputFormat = in.Quality, in.Ratio, in.OutputFormat
 		o.ResponseFormat, o.CommunityVisibility = in.ResponseFormat, in.CommunityVisibility
+		o.Extra = imagiapi.CleanExtra(in.Extra)
 	}
 	if strings.TrimSpace(o.Prompt) == "" {
 		return o, badRequest("提示词不能为空")
@@ -488,6 +491,7 @@ func readVideoOptions(r *http.Request) (imagiapi.VideoOptions, error) {
 		o.Ratio = formValue(r, "ratio")
 		o.Quality = formValue(r, "quality")
 		o.Seed, _ = strconv.ParseInt(formValue(r, "seed"), 10, 64)
+		o.Extra = formExtras(r)
 		refs, err := collectReferences(r.MultipartForm)
 		if err != nil {
 			return o, err
@@ -495,17 +499,18 @@ func readVideoOptions(r *http.Request) (imagiapi.VideoOptions, error) {
 		o.References = refs
 	} else {
 		var in struct {
-			Prompt         string `json:"prompt"`
-			NegativePrompt string `json:"negativePrompt"`
-			Model          string `json:"model"`
-			Variant        string `json:"variant"`
-			WorkflowFormat string `json:"workflowFormat"`
-			Duration       string `json:"duration"`
-			FPS            int    `json:"fps"`
-			Size           string `json:"size"`
-			Ratio          string `json:"ratio"`
-			Quality        string `json:"quality"`
-			Seed           int64  `json:"seed"`
+			Prompt         string            `json:"prompt"`
+			NegativePrompt string            `json:"negativePrompt"`
+			Model          string            `json:"model"`
+			Variant        string            `json:"variant"`
+			WorkflowFormat string            `json:"workflowFormat"`
+			Duration       string            `json:"duration"`
+			FPS            int               `json:"fps"`
+			Size           string            `json:"size"`
+			Ratio          string            `json:"ratio"`
+			Quality        string            `json:"quality"`
+			Seed           int64             `json:"seed"`
+			Extra          map[string]string `json:"extra"`
 		}
 		if err := decodeJSON(r, &in); err != nil {
 			return o, err
@@ -514,6 +519,7 @@ func readVideoOptions(r *http.Request) (imagiapi.VideoOptions, error) {
 		o.Variant, o.WorkflowFormat, o.Duration = in.Variant, in.WorkflowFormat, in.Duration
 		o.FPS, o.Size, o.Ratio = in.FPS, in.Size, in.Ratio
 		o.Quality, o.Seed = in.Quality, in.Seed
+		o.Extra = imagiapi.CleanExtra(in.Extra)
 	}
 	if strings.TrimSpace(o.Prompt) == "" {
 		return o, badRequest("提示词不能为空")
@@ -570,6 +576,22 @@ func formValue(r *http.Request, key string) string {
 		return strings.TrimSpace(v[0])
 	}
 	return ""
+}
+
+// formExtras picks up model-catalog parameters that this build has no typed
+// field for. CleanExtra drops reserved keys (prompt/model/…) and anything that
+// is not a short scalar, so only genuine upstream parameters survive.
+func formExtras(r *http.Request) map[string]string {
+	if r.MultipartForm == nil || len(r.MultipartForm.Value) == 0 {
+		return nil
+	}
+	raw := make(map[string]string, len(r.MultipartForm.Value))
+	for key, values := range r.MultipartForm.Value {
+		if len(values) > 0 {
+			raw[key] = values[0]
+		}
+	}
+	return imagiapi.CleanExtra(raw)
 }
 
 func atoiDefault(s string, def int) int {

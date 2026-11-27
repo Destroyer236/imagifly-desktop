@@ -24,8 +24,46 @@ func (s *Server) demoMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func demoFixture(path string) (any, bool) {
-	now := time.Now()
+// demoModelParams adds two parameters the live catalog does not declare yet.
+// It only affects -demo previews and exists to show that a new upstream
+// `<x>Options` array turns into a control without any client change.
+func demoModelParams(raw json.RawMessage) json.RawMessage {
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return raw
+	}
+	if list, ok := payload["imageModels"].([]any); ok && len(list) > 0 {
+		if m, ok := list[0].(map[string]any); ok {
+			m["aspectRatios"] = []any{"1:1", "4:3", "16:9", "21:9", "9:16"}
+			m["qualityOptions"] = []any{
+				map[string]any{"id": "standard", "label": "标准"},
+				map[string]any{"id": "high", "label": "高清"},
+				map[string]any{"id": "ultra", "label": "超清（演示）"},
+			}
+			m["lightingOptions"] = []any{
+				map[string]any{"id": "studio", "label": "棚拍光"},
+				map[string]any{"id": "golden", "label": "黄金时刻"},
+				map[string]any{"id": "neon", "label": "霓虹"},
+			}
+		}
+	}
+	if list, ok := payload["videoModels"].([]any); ok && len(list) > 0 {
+		if m, ok := list[0].(map[string]any); ok {
+			m["cameraMotionOptions"] = []any{
+				map[string]any{"id": "static", "label": "固定机位"},
+				map[string]any{"id": "pan", "label": "横摇"},
+				map[string]any{"id": "zoom", "label": "推拉"},
+			}
+		}
+	}
+	out, err := json.Marshal(payload)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+func demoFixture(path string) (any, bool) {	now := time.Now()
 	iso := func(d time.Duration) string { return now.Add(-d).Format(time.RFC3339) }
 	user := map[string]any{
 		"id": "usr_demo", "name": "Zephyr", "email": "demo@imagifly.net",

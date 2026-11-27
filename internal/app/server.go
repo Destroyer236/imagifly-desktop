@@ -197,6 +197,9 @@ func (s *Server) Handler() http.Handler {
 		if err != nil {
 			return nil, err
 		}
+		if s.Demo {
+			raw = demoModelParams(raw)
+		}
 		modelsCache.Put(raw, 10*time.Minute)
 		return raw, nil
 	}, 30*time.Second))
