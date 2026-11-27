@@ -3,7 +3,7 @@ import { S, modelInfo, modelLabel, imgModels, videoModels } from './store.js';
 import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { R } from './runtime.js';
-import { extraParams, defaultExtraValue } from './model-schema.js';
+import { extraParams, defaultExtraValue, prefersEnglishPrompt } from './model-schema.js';
 
 const IMG_RATIOS = ['1:1', '4:3', '3:2', '16:9', '9:16', '2:3', '3:4', 'Auto'];
 const QUALITIES = [
@@ -268,6 +268,7 @@ function template() {
         </div>
         <div class="prompt-meta">
           <button class="btn text xs" data-act="optimize" id="optimizeBtn">${icon('sparkle', 16)}优化提示词</button>
+          <span id="langSlot">${langSlotHTML(m)}</span>
           <span class="count" id="promptCount">${S.compose.prompt.length} / 2000</span>
         </div>
 
@@ -302,6 +303,11 @@ function template() {
       </section>
     </div>
   </div>`;
+}
+
+function langSlotHTML(model) {
+  if (!prefersEnglishPrompt(model)) return '';
+  return `<button class="btn text xs" data-act="translate-prompt" id="translateBtn" data-tip="该模型更容易理解英文提示词">${icon('translate', 16)}译成英文</button>`;
 }
 
 function modelDisplayLabel() {
@@ -344,6 +350,8 @@ function refreshComposer(view) {
     menu.hidden = true;
   }
   const cost = mode === 'image' ? imageCost() : videoCost();
+  const langSlot = root.querySelector('#langSlot');
+  if (langSlot) langSlot.innerHTML = langSlotHTML(m);
   const pill = root.querySelector('#costPill');
   if (pill) pill.innerHTML = `${icon('sparkle', 13)}≈ ${UI.fmtNum(cost)} 额度`;
   const value = root.querySelector('#costValue');
@@ -592,6 +600,50 @@ async function doOptimize(view) {
   }
 }
 
+async function doTranslate(view) {
+  const ta = view.querySelector('#prompt');
+  const btn = view.querySelector('#translateBtn');
+  if (!ta || !btn) return;
+  const text = (ta.value || '').trim();
+  if (!text) {
+    UI.toast('先写提示词再翻译', 'warn');
+    return;
+  }
+  if (!/[\u4e00-\u9fff]/.test(text)) {
+    UI.toast('提示词已经是英文', 'info');
+    return;
+  }
+  const old = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `${UI.wavyRing(16, 1.6, 6, 4)}<span>翻译中…</span>`;
+  try {
+    const data = await api('/local/translate', { method: 'POST', body: { text, target: 'en' }, timeout: 30000 });
+    const next = String(data?.text || '').trim();
+    if (!next) throw new Error('翻译服务没有返回结果');
+    ta.value = next;
+    S.compose.prompt = next;
+    ta.dispatchEvent(new Event('input'));
+    UI.toast(data?.provider === 'none' ? '提示词已经是英文' : '已译为英文', 'ok', data?.provider === 'none' ? null : {
+      label: '撤销',
+      fn: () => {
+        if (S.compose.prompt !== next) return;
+        S.compose.prompt = text;
+        const el = document.getElementById('prompt');
+        if (el) {
+          el.value = text;
+          el.dispatchEvent(new Event('input'));
+        }
+        UI.toast('已恢复原文', 'info');
+      },
+    });
+  } catch (e) {
+    UI.toast(`翻译失败：${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = old;
+  }
+}
+
 export function updateCreateTasks() {
   const grid = document.getElementById('recentGrid');
   if (!grid) return;
@@ -716,5 +768,6 @@ export const createActions = {
   },
   'rm-ref': (d) => { S.refs.splice(Number(d.i), 1); refreshComposer(document.getElementById('view')); },
   optimize: () => doOptimize(document.getElementById('view')),
+  'translate-prompt': () => doTranslate(document.getElementById('view')),
   generate: () => doGenerate(document.getElementById('view')),
 };

@@ -167,3 +167,44 @@ export function defaultExtraValue(spec, param) {
   if (raw === null || raw === undefined || raw === '') return '';
   return String(raw);
 }
+
+// 提示词语言：优先读上游字段，没有就按模型族兜底。英文优先的模型给一个
+// 「译成英文」入口；中文模型不打扰。
+const ENGLISH_FIRST = [
+  /^gpt-image/i,
+  /^nano-banana/i,
+  /^grok-imagine/i,
+  /^wai-sdxl/i,
+  /^z-image/i,
+  /^flux/i,
+  /^sdxl/i,
+  /^midjourney/i,
+  /^ideogram/i,
+];
+const CHINESE_FIRST = [
+  /^qwen/i,
+  /^seedream/i,
+  /^seedance/i,
+  /^minimax/i,
+  /^kling/i,
+  /^hailuo/i,
+  /^wan/i,
+  /^doubao/i,
+  /^vidu/i,
+  /^hunyuan/i,
+];
+
+export function promptLanguage(spec) {
+  if (!spec) return '';
+  const declared = String(spec.promptLanguage || spec.language || spec.promptLang || '').toLowerCase();
+  if (declared.startsWith('en')) return 'en';
+  if (declared.startsWith('zh')) return 'zh';
+  const id = String(spec.id || '');
+  if (ENGLISH_FIRST.some((re) => re.test(id))) return 'en';
+  if (CHINESE_FIRST.some((re) => re.test(id))) return 'zh';
+  return '';
+}
+
+export function prefersEnglishPrompt(spec) {
+  return promptLanguage(spec) === 'en';
+}

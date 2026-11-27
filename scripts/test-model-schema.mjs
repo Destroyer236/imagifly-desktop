@@ -2,7 +2,7 @@
 // 必须变成参数，并且提交字段名去掉 Options 后缀。
 // 运行：node scripts/test-model-schema.mjs
 import assert from 'node:assert/strict';
-import { extraParams, humanLabel, optionFormKey, defaultExtraValue, normalizeOptions } from '../web/js/model-schema.js';
+import { extraParams, humanLabel, optionFormKey, defaultExtraValue, normalizeOptions, promptLanguage, prefersEnglishPrompt } from '../web/js/model-schema.js';
 
 const cases = [];
 function test(name, fn) {
@@ -77,6 +77,22 @@ test('对象 options 的值优先 id / size', () => {
 test('标签回退：不认识就保留键名', () => {
   assert.equal(humanLabel('foobarOptions'), 'foobar');
   assert.equal(optionFormKey('cameraMotionOptions'), 'cameraMotion');
+});
+
+test('英文优先模型识别', () => {
+  assert.equal(prefersEnglishPrompt({ id: 'gpt-image-2' }), true);
+  assert.equal(prefersEnglishPrompt({ id: 'Wai-SDXL-V170' }), true);
+  assert.equal(prefersEnglishPrompt({ id: 'nano-banana-2' }), true);
+  assert.equal(prefersEnglishPrompt({ id: 'grok-imagine-image' }), true);
+  assert.equal(prefersEnglishPrompt({ id: 'Qwen-Image-Edit' }), false);
+  assert.equal(prefersEnglishPrompt({ id: 'MiniMax-H3' }), false);
+  assert.equal(prefersEnglishPrompt({ id: 'seedance' }), false);
+});
+
+test('上游显式 language 字段优先', () => {
+  assert.equal(promptLanguage({ id: 'qwen-image', language: 'en' }), 'en');
+  assert.equal(promptLanguage({ id: 'gpt-image-2', promptLanguage: 'zh-CN' }), 'zh');
+  assert.equal(promptLanguage({ id: 'unknown-model-1' }), '');
 });
 
 console.log(cases.join('\n'));

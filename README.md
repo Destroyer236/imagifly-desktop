@@ -11,13 +11,13 @@ imagifly.net 的 Windows 桌面客户端。Go 单文件后端 + WebView2 原生�
 
 | 模块 | 能力 |
 | --- | --- |
-| 创作 | 图片/视频生成、模型与参数联动、参考图/首末帧/参考视频音频、Seedance 2.0/2.5 变体、成本预览、提示词优化、并发位与 429 提示、上游参数自动同步 |
+| 创作 | 图片/视频生成、模型与参数联动、参考图/首末帧/参考视频音频、Seedance 2.0/2.5 变体、成本预览、提示词优化、英文优先模型的一键译英文（MyMemory 免费接口，本地缓存 24 小时）、并发位与 429 提示、上游参数自动同步 |
 | 作品 | 最近生成、作品库、自动轮询、详情/下载/删除/复制提示词、可见性、二创复用；删除即时从列表移除，后台等待上游确认，失败自动恢复 |
 | 社区 | 今日精选、社区/关注动态、图片/视频筛选、搜索（带清除与关键词回显）、点赞、关注、举报、二创登记、详情、下载 |
 | 积分 | 额度仪表、签到、额度构成与流水、套餐与 Stripe 支付、邀请返利 |
 | 设置 | 多账号添加/切换/移除、账号资料/头像/改密、账号 ID/注册时间/社区数据、关注/公开作品/收到点赞/点赞了别人关系页、通知、安全与本地、已授权设备、下载目录 |
 | 开发者 | API Key 增删与明文一次性展示、MCP JSON-RPC 控制台、14 项公共接口自检、47 行覆盖清单、上游请求日志 |
-| 更新 | 检查 GitHub Releases、4 个内置镜像一键测速、下载安装版/免安装版、静默安装并在装完后删除旧安装包 |
+| 更新 | 启动后自动检查 GitHub Releases 并弹窗提示新版本（同版本只提示一次）、4 个内置镜像一键测速、下载安装版/免安装版、静默安装并在装完后删除旧安装包 |
 
 界面采用 M3E 的角色化配色、`surfaceContainer*` 表面层级、全圆角按钮与按下形变、圆环额度仪表、LargeExtendedFAB、自适应 navigation rail。每个信息密集页面只保留一处强表达：创作页是 LargeExtendedFAB，社区页是今日精选横滑，积分页是额度圆环仪表，作品页则刻意收敛为列表密度；设置页把账号资料、通知和本地配置集中到一处。
 
@@ -39,7 +39,7 @@ cd imagifly-desktop
 $env:GOPROXY = 'https://goproxy.cn,direct'
 
 .\build.ps1            # 生成 imagifly-desktop.exe
-.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.19-win64.zip
+.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.20-win64.zip
 .\build.ps1 -Test      # 构建前先跑 go test ./...
 ```
 
@@ -70,14 +70,14 @@ GitHub Releases 提供两个包：
 .\build.ps1 -Package
 
 # 免安装版
-$stage = 'dist\ImagiflyDesktop-1.2.19-win64-portable'
+$stage = 'dist\ImagiflyDesktop-1.2.20-win64-portable'
 Copy-Item imagifly-desktop.exe $stage
 upx --best --lzma "$stage\imagifly-desktop.exe"
 Copy-Item README.md, LICENSE, API-COVERAGE.md $stage
-Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.19-win64-portable.zip' -CompressionLevel Optimal
+Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.20-win64-portable.zip' -CompressionLevel Optimal
 
 # 安装版
-ISCC.exe /DAppVersion=1.2.19 installer\imagifly-desktop.iss
+ISCC.exe /DAppVersion=1.2.20 installer\imagifly-desktop.iss
 ```
 
 `installer/` 里带 `ChineseSimplified.isl`（Inno 官方简体中文语言文件），因此不需要额外安装语言包。安装版内是**未压缩**的 exe，避免 UPX 带来的杀软启发式误报。

@@ -299,6 +299,7 @@ func (s *Server) Handler() http.Handler {
 
 	// --- media & shell ---------------------------------------------------
 	// --- self update -----------------------------------------------------
+	mux.HandleFunc("POST /local/translate", s.wrap(s.handleTranslate, 40*time.Second))
 	mux.HandleFunc("GET /local/update/info", s.wrap(s.handleUpdateInfo, 40*time.Second))
 	mux.HandleFunc("POST /local/update/mirrors/test", s.wrap(s.handleUpdateMirrorTest, 40*time.Second))
 	mux.HandleFunc("POST /local/update/download", s.wrap(s.handleUpdateDownload, 30*time.Second))

@@ -10,6 +10,7 @@ import { renderCredits, renderSettings, renderRelations, accountActions } from '
 import { renderDev, devActions } from './screen-dev.js';
 import { renderAbout } from './screen-about.js';
 import { renderUpdate, updateActions } from './screen-update.js';
+import { startUpdateWatcher } from './update-check.js';
 import { taskActions } from './task.js';
 
 const ROUTES = {
@@ -164,6 +165,7 @@ async function enterApp() {
   await navigate(S.route || 'create');
   hydrateA11y(app);
   if (!['create', 'library'].includes(S.route)) refreshTasks(true);
+  startUpdateWatcher();
 }
 
 async function navigate(route) {

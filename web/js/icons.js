@@ -60,6 +60,7 @@ const ICONS = {
   maximize: `<rect x="5.5" y="5.5" width="13" height="13" rx="1.4"/>`,
   restore: `<rect x="8" y="8" width="10.5" height="10.5" rx="1.2"/><path d="M10.5 8V6.5A1.5 1.5 0 0 1 12 5h5.5A1.5 1.5 0 0 1 19 6.5V12a1.5 1.5 0 0 1-1.5 1.5H16"/>`,
   dot: `<circle cx="12" cy="12" r="3.5"/>`,
+  translate: `<path d="M4 5h8M8 5v.2M5.5 9.2c.9 2.4 2.7 4.2 4.8 5.3M11.4 9.2c-.9 2.4-2.7 4.2-4.8 5.3"/><path d="M14.5 20l3.1-8.5 3.1 8.5M15.7 17.4h3.7"/>`,
 };
 
 export function icon(name, size = 24, weight = 1.8) {
