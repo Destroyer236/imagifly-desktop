@@ -1285,3 +1285,9 @@ a.link { color: var(--primary); }
 .dl-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 42px 18px; color: var(--on-surface-variant); }
 .dl-empty .t { font-size: 15px; font-weight: 600; color: var(--on-surface); }
 .dl-empty .s { max-width: 420px; font-size: 12px; line-height: 1.6; }
+
+/* 设置页二级分类：设置 / 更新 / 关于 */
+.prefs-tabs { margin: 0 0 18px; gap: 2px; }
+.prefs-tabs .tab { display: inline-flex; align-items: center; gap: 7px; }
+.prefs-tabs .tab svg { opacity: .65; }
+.prefs-tabs .tab.selected svg { opacity: 1; }

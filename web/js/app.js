@@ -12,6 +12,7 @@ import { renderAbout } from './screen-about.js';
 import { renderUpdate, updateActions } from './screen-update.js';
 import { renderDownloads, downloadActions } from './screen-downloads.js';
 import { startUpdateWatcher } from './update-check.js';
+import { prefsTabsHTML } from './prefs-tabs.js';
 import { taskActions } from './task.js';
 
 const ROUTES = {
@@ -20,11 +21,11 @@ const ROUTES = {
   downloads: { title: '下载', sub: '下载队列、进度与速度', icon: 'download', render: renderDownloads, actions: downloadActions },
   community: { title: '社区', sub: '看看别人正在生成什么', icon: 'globe', render: renderCommunity, actions: communityActions },
   credits: { title: '积分', sub: '额度、签到与订阅', icon: 'star', render: renderCredits, actions: accountActions },
-  settings: { title: '设置', sub: '账号、通知与本地设置', icon: 'tune', render: renderSettings, actions: accountActions },
+  settings: { title: '设置', sub: '账号、通知、更新与关于', icon: 'tune', render: renderSettings, actions: accountActions },
   relations: { title: '关注与点赞', sub: '账号的社区关系', icon: 'person', hidden: true, render: renderRelations, actions: accountActions },
   dev: { title: '开发者', sub: 'API Key、MCP 与接口覆盖', icon: 'code', render: renderDev, actions: devActions },
-  update: { title: '更新', sub: '检查新版本、镜像下载与安装', icon: 'speed', render: renderUpdate, actions: updateActions },
-  about: { title: '关于', sub: '版本、作者与致谢', icon: 'info', render: renderAbout, actions: {} },
+  update: { title: '更新', sub: '检查新版本、镜像下载与安装', icon: 'speed', hidden: true, render: renderUpdate, actions: updateActions },
+  about: { title: '关于', sub: '版本、作者与致谢', icon: 'info', hidden: true, render: renderAbout, actions: {} },
 };
 
 let pollTimer = null;
@@ -170,20 +171,28 @@ async function enterApp() {
   startUpdateWatcher();
 }
 
+/* 设置 / 更新 / 关于现在合并成一个二级分类：左栏只保留「设置」，
+   三个页面共用顶部标签，页码标题也固定为设置。 */
+const PREF_GROUP = new Set(['settings', 'update', 'about']);
+
 async function navigate(route) {
   if (route === 'account') route = 'settings';
   if (!ROUTES[route]) route = 'create';
   S.route = route;
   UI.closeSheet();
   const def = ROUTES[route];
-  document.querySelectorAll('.rail-item').forEach((el) => el.classList.toggle('active', el.dataset.route === (route === 'relations' ? 'settings' : route)));
+  const titleDef = PREF_GROUP.has(route) ? ROUTES.settings : def;
+  const railRoute = route === 'relations' || PREF_GROUP.has(route) ? 'settings' : route;
+  document.querySelectorAll('.rail-item').forEach((el) => el.classList.toggle('active', el.dataset.route === railRoute));
   const title = document.getElementById('pageTitle');
   const sub = document.getElementById('pageSub');
-  if (title) title.textContent = def.title;
-  if (sub) sub.textContent = def.sub;
+  if (title) title.textContent = titleDef.title;
+  if (sub) sub.textContent = titleDef.sub;
   const view = document.getElementById('view');
   if (!view) return;
-  view.innerHTML = UI.skeletonPage(4);
+  view.innerHTML = PREF_GROUP.has(route)
+    ? `<div class="page">${prefsTabsHTML(route)}${UI.skeletonPage(4)}</div>`
+    : UI.skeletonPage(4);
   view.scrollTop = 0;
   try {
     await def.render(view);

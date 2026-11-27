@@ -2,6 +2,7 @@ import { api } from './api.js';
 import { S } from './store.js';
 import { icon } from './icons.js';
 import * as UI from './ui.js';
+import { prefsTabsHTML } from './prefs-tabs.js';
 
 /* 更新页：检查 GitHub Release、从内置镜像下载安装包、安装并在安装完成后清理旧包。
    下载与安装都由本地服务完成，页面只负责展示进度。 */
@@ -222,6 +223,7 @@ function tipsHTML() {
 function paint() {
   if (!view) return;
   view.innerHTML = `<div class="page upd-page">
+    ${prefsTabsHTML('update')}
     ${heroHTML()}
     <div class="upd-progress-host">${progressHTML()}</div>
     <section class="sect upd-panel" data-role="mirrors">${mirrorsHTML()}</section>
@@ -307,7 +309,7 @@ export async function renderUpdate(el) {
   view = el;
   stopPolling();
   lastToastState = '';
-  el.innerHTML = UI.skeletonPage(3);
+  el.innerHTML = `<div class="page upd-page">${prefsTabsHTML('update')}${UI.skeletonPage(3)}</div>`;
   await Promise.all([loadInfo(), loadStatus()]);
   state.tests = state.tests || null;
   paint();

@@ -1,6 +1,7 @@
 import { S } from './store.js';
 import { icon } from './icons.js';
 import * as UI from './ui.js';
+import { prefsTabsHTML } from './prefs-tabs.js';
 
 function versionLabel() {
   const raw = String(S.cfg?.version || '').trim();
@@ -11,6 +12,7 @@ function versionLabel() {
 export async function renderAbout(view) {
   const version = versionLabel();
   view.innerHTML = `<div class="page about-page">
+    ${prefsTabsHTML('about')}
     <section class="about-hero">
       <div class="about-hero-top">
         <div class="about-icon"><img src="/assets/app-icon.png" alt="Imagifly 图标"></div>

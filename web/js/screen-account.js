@@ -4,6 +4,7 @@ import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { openCommunity } from './screen-community.js';
 import { R } from './runtime.js';
+import { prefsTabsHTML } from './prefs-tabs.js';
 
 const SOURCE_LABELS = {
   daily: '每日签到',
@@ -77,6 +78,7 @@ export async function renderCredits(view) {
 export async function renderSettings(view) {
   const errors = await loadBlocks(settingsRequests(), view);
   view.innerHTML = `<div class="page narrow">
+    ${prefsTabsHTML('settings')}
     ${errorBanner(errors)}
     <div class="settings-stack">
       ${profileBlock()}
