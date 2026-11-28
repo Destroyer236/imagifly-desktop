@@ -318,11 +318,15 @@ function creditHero() {
   const used = usage.usedCredits ?? 0;
   const pct = usage.usedPercentage ?? (total ? (used / total) * 100 : 0);
   const tier = S.billing?.activePlan?.tier || 'free';
+  const expiresAt = S.billing?.activePlan?.expiresAt;
+  const expiryPill = expiresAt
+    ? `<span class="pill" data-tip="订阅到期时间">${icon('clock', 13)}${new Date(expiresAt).getTime() < Date.now() ? '订阅已到期' : '订阅到期'} ${UI.fmtDate(expiresAt, true)}</span>`
+    : '';
   const availablePct = Math.max(0, Math.min(100, 100 - pct));
   return `<section class="credit-hero">
     <div class="gauge">${UI.gaugeSVG(availablePct)}<div class="inner"><div class="big num">${UI.fmtCredits(available)}</div><div class="unit">可用额度</div></div></div>
     <div class="credit-info">
-      <div class="label-row"><span class="pill">${icon('card', 13)}${tier.toUpperCase()} 套餐</span><span class="pill">${icon('sparkle', 13)}已用 ${UI.fmtCredits(used)}</span></div>
+      <div class="label-row"><span class="pill">${icon('card', 13)}${tier.toUpperCase()} 套餐</span>${expiryPill}<span class="pill">${icon('sparkle', 13)}已用 ${UI.fmtCredits(used)}</span></div>
       <div class="amount num">${UI.fmtCredits(available)} <span style="font-size:13px;color:var(--on-surface-variant);font-weight:500">额度</span></div>
       <div class="facts"><span>总额度 ${UI.fmtCredits(total)}</span><span>使用率 ${pct.toFixed(1)}%</span><span>${S.account.summary?.stats?.successfulGenerations || 0} 次成功生成</span></div>
       <div class="credit-actions">
