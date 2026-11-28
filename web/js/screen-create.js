@@ -6,6 +6,7 @@ import { R } from './runtime.js';
 import { extraParams, defaultExtraValue, prefersEnglishPrompt } from './model-schema.js';
 
 const IMG_RATIOS = ['1:1', '4:3', '3:2', '16:9', '9:16', '2:3', '3:4', 'Auto'];
+const NEW_WINDOW_MS = 10 * 60 * 1000;
 const QUALITIES = [
   { id: 'standard', label: '标准' },
   { id: 'high', label: '高清' },
@@ -260,7 +261,6 @@ function template() {
             <button class="chip" data-act="model-open" id="modelBtn">${icon('layers', 15)}${UI.esc(modelDisplayLabel())}${icon('chevronDown', 14)}</button>
             <div class="menu" id="modelMenu" hidden>${modelMenuHTML()}</div>
           </div>
-          <span class="pill" id="costPill">${icon('sparkle', 13)}≈ ${UI.fmtNum(cost)} 额度</span>
         </div>
 
         <div class="composer-prompt">
@@ -362,8 +362,6 @@ function refreshComposer(view) {
   const cost = mode === 'image' ? imageCost() : videoCost();
   const langSlot = root.querySelector('#langSlot');
   if (langSlot) langSlot.innerHTML = langSlotHTML(m);
-  const pill = root.querySelector('#costPill');
-  if (pill) pill.innerHTML = `${icon('sparkle', 13)}≈ ${UI.fmtNum(cost)} 额度`;
   const value = root.querySelector('#costValue');
   if (value) value.textContent = `≈ ${UI.fmtNum(cost)} 额度`;
   const hint = root.querySelector('#costHint');
@@ -696,6 +694,36 @@ function paintLatest(item) {
   sect.hidden = false;
 }
 
+function isRecentNew(task, now = Date.now()) {
+  if (task.status !== 'success' || String(task.moderationStatus || '').includes('rejected')) return false;
+  const ts = new Date(task.createdAt).getTime();
+  if (!Number.isFinite(ts)) return false;
+  const age = now - ts;
+  return age >= 0 && age <= NEW_WINDOW_MS;
+}
+
+function recentNewIds(sorted) {
+  const now = Date.now();
+  return sorted.filter((t) => isRecentNew(t, now)).map((t) => String(t.id));
+}
+
+let newBadgeTimer = null;
+function scheduleNewBadgeTick(sorted) {
+  if (newBadgeTimer) clearTimeout(newBadgeTimer);
+  newBadgeTimer = null;
+  const now = Date.now();
+  const expiries = sorted
+    .filter((t) => t.status === 'success' && !String(t.moderationStatus || '').includes('rejected'))
+    .map((t) => new Date(t.createdAt).getTime() + NEW_WINDOW_MS)
+    .filter((ts) => Number.isFinite(ts) && ts > now);
+  if (!expiries.length) return;
+  const delay = Math.min(Math.min(...expiries) - now + 1000, NEW_WINDOW_MS);
+  newBadgeTimer = setTimeout(() => {
+    newBadgeTimer = null;
+    if (document.getElementById('recentGrid')) updateCreateTasks();
+  }, Math.max(1000, delay));
+}
+
 function visibleReveal(sorted) {
   const ids = new Set((S.compose.watchIds || []).map(String));
   return sorted.find((t) => ids.has(String(t.id))
@@ -715,7 +743,9 @@ export function updateCreateTasks() {
     S.compose.revealSeen = false;
   }
   const showNew = !!reveal && !S.compose.revealSeen && String(reveal.id) === String(S.compose.revealId || '');
-  UI.paintTaskGrid(grid, sorted.slice(0, 12), showNew ? reveal.id : '');
+  const newIds = recentNewIds(sorted);
+  UI.paintTaskGrid(grid, sorted.slice(0, 12), newIds);
+  scheduleNewBadgeTick(sorted);
 
   const latest = document.getElementById('latestSect');
   if (latest) {

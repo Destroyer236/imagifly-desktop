@@ -454,7 +454,7 @@ export function elapsedText(item) {
   return `${secs}s`;
 }
 
-export function paintTaskGrid(container, items, badgeId = '') {
+export function paintTaskGrid(container, items, badgeIds = []) {
   if (!container) return;
   const visible = visibleTasks(items);
   if (!visible.length) {
@@ -462,10 +462,12 @@ export function paintTaskGrid(container, items, badgeId = '') {
     return;
   }
   container.innerHTML = visible.map(taskCard).join('');
-  const key = String(badgeId || '');
-  if (!key) return;
-  const card = [...container.querySelectorAll('.media-card')].find((el) => String(el.dataset.id) === key);
-  if (card) {
+  const keys = new Set((Array.isArray(badgeIds) ? badgeIds : [badgeIds])
+    .map((v) => String(v || ''))
+    .filter(Boolean));
+  if (!keys.size) return;
+  for (const card of container.querySelectorAll('.media-card')) {
+    if (!keys.has(String(card.dataset.id))) continue;
     card.classList.add('is-new');
     const frame = card.querySelector('.frame');
     if (frame) frame.insertAdjacentHTML('beforeend', '<span class="new-corner">NEW</span>');

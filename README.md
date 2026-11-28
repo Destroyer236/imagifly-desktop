@@ -40,7 +40,7 @@ cd imagifly-desktop
 $env:GOPROXY = 'https://goproxy.cn,direct'
 
 .\build.ps1            # 生成 imagifly-desktop.exe
-.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.26-win64.zip
+.\build.ps1 -Package   # 再生成 dist\ImagiflyDesktop-1.2.27-win64.zip
 .\build.ps1 -Test      # 构建前先跑 go test ./...
 ```
 
@@ -71,14 +71,14 @@ GitHub Releases 提供两个包：
 .\build.ps1 -Package
 
 # 免安装版
-$stage = 'dist\ImagiflyDesktop-1.2.26-win64-portable'
+$stage = 'dist\ImagiflyDesktop-1.2.27-win64-portable'
 Copy-Item imagifly-desktop.exe $stage
 upx --best --lzma "$stage\imagifly-desktop.exe"
 Copy-Item README.md, LICENSE, API-COVERAGE.md $stage
-Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.26-win64-portable.zip' -CompressionLevel Optimal
+Compress-Archive -Path "$stage\*" -DestinationPath 'dist\ImagiflyDesktop-1.2.27-win64-portable.zip' -CompressionLevel Optimal
 
 # 安装版
-ISCC.exe /DAppVersion=1.2.26 installer\imagifly-desktop.iss
+ISCC.exe /DAppVersion=1.2.27 installer\imagifly-desktop.iss
 ```
 
 `installer/` 里带 `ChineseSimplified.isl`（Inno 官方简体中文语言文件），因此不需要额外安装语言包。安装版内是**未压缩**的 exe，避免 UPX 带来的杀软启发式误报。
