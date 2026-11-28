@@ -14,6 +14,8 @@ const state = {
   testing: false,
   progress: null,
   dir: '',
+  oneClick: false,
+  autoInstall: false,
 };
 
 let view = null;
@@ -65,6 +67,14 @@ function fastestMirror() {
 
 /* --- fragments ----------------------------------------------------------- */
 
+function primaryButtonHTML() {
+  const downloading = state.progress?.state === 'downloading';
+  const done = state.progress?.state === 'done' && state.progress?.kind === 'setup';
+  const busy = state.oneClick || downloading;
+  const label = busy ? '更新中…' : (done ? '安装并重启' : '一键更新');
+  return `<button class="btn filled sm" data-act="upd-oneclick"${busy ? ' disabled' : ''}>${icon('bolt', 16)}${label}</button>`;
+}
+
 function heroHTML() {
   const info = state.info;
   const current = versionText(info?.current || S.cfg?.version);
@@ -80,7 +90,7 @@ function heroHTML() {
     : UI.esc(current);
 
   const sub = info?.hasUpdate
-    ? `发布于 ${UI.esc(UI.fmtDate(info.publishedAt))} · 安装完成后会自动删除下载的旧安装包`
+    ? `发布于 ${UI.esc(UI.fmtDate(info.publishedAt))} · 一键更新会自动测速、下载并静默安装`
     : info
       ? `当前已是最新版本 · 上次检查 ${UI.esc(UI.fmtDate(new Date(info.checkedAt).toISOString(), true))}`
       : '正在向 GitHub 查询最新版本…';
@@ -97,7 +107,7 @@ function heroHTML() {
         </div>
       </div>
       <div class="upd-hero-acts">
-        <button class="btn filled sm" data-act="upd-check">${icon('refresh', 16)}检查更新</button>
+        ${primaryButtonHTML()}
         <button class="btn text sm" data-act="upd-release">${icon('external', 16)}打开发布页</button>
         <button class="btn text sm" data-act="upd-folder">${icon('folder', 16)}打开下载目录</button>
       </div>
@@ -188,7 +198,7 @@ function mirrorsHTML() {
     return `<div class="card pad-sm"><p class="field-help">没有拿到可用的镜像配置，请先检查更新。</p></div>`;
   }
   const hint = state.info?.hasUpdate
-    ? '各镜像下载的是同一份安装包，点「一键测速」挑最快的那个。'
+    ? '「一键更新」会自动选最快镜像；也可以在这里手动下载。'
     : '当前已是最新版本，有更新后这里会变成可下载。';
   return `${UI.sectionHead('下载镜像', hint, `<button class="btn tonal sm" data-act="upd-test"${state.testing ? ' disabled' : ''}>${icon('speed', 16)}${state.testing ? '测速中…' : '一键测速'}</button>`)}
     <div class="upd-mirrors">${list.map(mirrorRowHTML).join('')}</div>`;
@@ -208,6 +218,7 @@ function tipsHTML() {
     ${UI.sectionHead('说明', '更新流程与本地文件')}
     <div class="card pad-sm upd-tips">
       <ul>
+        <li>「一键更新」会自动测速、选最快镜像，下载完成后直接静默安装。</li>
         <li>下载走本机直连镜像，安装包保存在 <span class="mono">${UI.esc(state.dir || '%AppData%\\ImagiflyDesktop\\updates')}</span>。</li>
         <li>安装版为静默安装：保留账号、设置与作品记录，安装完成后客户端会自动重启。</li>
         <li>安装包用完后会自动删除；启动时也会清理遗留的旧安装包。</li>
@@ -302,13 +313,20 @@ function startPolling() {
     const p = state.progress;
     if (!p || p.state !== 'downloading') {
       stopPolling();
+      paint();
       if (p?.state === 'done' && lastToastState !== 'done') {
         lastToastState = 'done';
-        UI.toast('安装包下载完成，可以安装了', 'ok');
+        if (!state.autoInstall) UI.toast('安装包下载完成，可以安装了', 'ok');
       }
       if (p?.state === 'error' && lastToastState !== 'error') {
         lastToastState = 'error';
+        state.autoInstall = false;
         UI.toast(`下载失败：${p.error || '未知原因'}`, 'error');
+      }
+      if (p?.state === 'done' && state.autoInstall && p.kind === 'setup') {
+        state.autoInstall = false;
+        UI.toast('下载完成，正在静默安装…', 'ok');
+        updateActions['upd-install']();
       }
     }
     paintProgress();
@@ -325,6 +343,8 @@ function stopPolling() {
 export async function renderUpdate(el) {
   view = el;
   stopPolling();
+  state.oneClick = false;
+  state.autoInstall = false;
   lastToastState = '';
   el.innerHTML = `<div class="page pref-page upd-page">${prefsTabsHTML('update')}${UI.skeletonPage(3)}</div>`;
   await Promise.all([loadInfo(), loadStatus()]);
@@ -341,6 +361,48 @@ function busyToast(text) {
 }
 
 export const updateActions = {
+  'upd-oneclick': async () => {
+    if (state.oneClick || state.progress?.state === 'downloading') {
+      UI.toast('正在更新，请稍候…', 'info');
+      return;
+    }
+    if (state.progress?.state === 'done' && state.progress?.kind === 'setup') {
+      return updateActions['upd-install']();
+    }
+    state.oneClick = true;
+    paint();
+    try {
+      if (!state.info?.hasUpdate) await loadInfo(true);
+      if (state.error) throw new Error(state.error);
+      if (!state.info?.hasUpdate) {
+        state.oneClick = false;
+        paint();
+        UI.toast('已经是最新版本', 'ok');
+        return;
+      }
+      paint();
+      UI.toast(`发现新版本 ${versionText(state.info.latest)}，正在选择最快镜像…`, 'ok');
+      if (!assetOf('setup')) throw new Error('该版本没有安装版安装包，请在下方手动下载免安装版');
+      state.autoInstall = true;
+      if (!state.tests || !state.tests.some((t) => t.ok)) await runMirrorTest();
+      const mid = fastestMirror()
+        || state.info?.mirrors?.find((m) => m.id === 'gh-proxy')?.id
+        || state.info?.mirrors?.[0]?.id;
+      if (!mid) throw new Error('没有可用的下载镜像');
+      UI.toast(`使用 ${mirrorName(mid)} 下载安装包…`, 'info');
+      const res = await api('/local/update/download', { method: 'POST', body: { mirror: mid, kind: 'setup' } });
+      state.progress = res.progress || null;
+      lastToastState = '';
+      state.oneClick = false;
+      paint();
+      startPolling();
+    } catch (e) {
+      state.oneClick = false;
+      state.autoInstall = false;
+      paint();
+      UI.toast(e.message || '一键更新失败', 'error');
+    }
+  },
   'upd-check': async () => {
     paint();
     await loadInfo(true);
@@ -357,6 +419,8 @@ export const updateActions = {
   'upd-dl': async (d) => {
     const kind = d.kind === 'portable' ? 'portable' : 'setup';
     const mid = d.mid || 'gh-proxy';
+    state.oneClick = false;
+    state.autoInstall = false;
     try {
       busyToast(`开始下载 ${mirrorName(mid)} 的${kind === 'setup' ? '安装版' : '免安装版'}…`);
       const res = await api('/local/update/download', { method: 'POST', body: { mirror: mid, kind } });
@@ -369,6 +433,8 @@ export const updateActions = {
     }
   },
   'upd-cancel': async () => {
+    state.autoInstall = false;
+    state.oneClick = false;
     try {
       const res = await api('/local/update/cancel', { method: 'POST', body: {} });
       state.progress = res.progress || null;
