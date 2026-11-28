@@ -158,18 +158,27 @@ a { color: var(--primary); text-decoration: none; }
 .app-bg-veil { position: absolute; inset: 0; background: rgba(5, 8, 12, var(--bg-veil)); }
 html[data-custom-bg="on"] .app-bg { opacity: 1; }
 html[data-custom-bg="on"] .app-titlebar {
-  background: color-mix(in srgb, var(--surface-low) 64%, transparent);
-  backdrop-filter: blur(18px);
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--outline-variant) 24%, transparent);
 }
 html[data-custom-bg="on"] .rail {
-  background: color-mix(in srgb, var(--surface-low) 62%, transparent);
-  backdrop-filter: blur(20px);
+  background: transparent;
+  border-right-color: color-mix(in srgb, var(--outline-variant) 24%, transparent);
+}
+html[data-custom-bg="on"] .topbar {
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--outline-variant) 24%, transparent);
+  backdrop-filter: none;
 }
 html[data-custom-bg="on"] .shell > .main { background: transparent; }
+html[data-custom-bg="on"] .seg {
+  background: color-mix(in srgb, var(--surface-high) 18%, transparent);
+  backdrop-filter: blur(14px);
+}
 html[data-custom-bg="on"] .card,
 html[data-custom-bg="on"] .card.hero {
-  background: color-mix(in srgb, var(--surface-container) 78%, transparent);
-  backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--surface-container) 30%, transparent);
+  backdrop-filter: blur(20px);
 }
 
 /* --- custom window titlebar --------------------------------------------- */
