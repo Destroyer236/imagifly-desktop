@@ -325,7 +325,7 @@ function showLogin() {
     <section class="login-side">
       <form class="login-card" id="loginForm" autocomplete="on">
         <h2>欢迎回来</h2>
-        <div class="hint">使用你的 imagifly.net 邮箱登录</div>
+        <div class="hint">使用你的 imagifly.net 邮箱登录；还没有账号请先到 imagifly.net 注册</div>
         <div id="loginErr"></div>
         <div class="field"><label>邮箱</label><div class="field-box">${icon('send', 18)}<input id="lgEmail" type="email" placeholder="user@example.com" autocomplete="username" required></div></div>
         <div class="field"><label>密码</label><div class="field-box">${icon('lock', 18)}<input id="lgPass" type="password" placeholder="••••••••" autocomplete="current-password" required></div></div>
