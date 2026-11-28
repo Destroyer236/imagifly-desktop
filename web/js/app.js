@@ -47,11 +47,13 @@ function applyTheme(theme) {
   const mode = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = mode;
   UI.applyAccent(S.cfg?.accent || '');
+  UI.applyCustomBackground(S.cfg);
   const btns = document.querySelectorAll('[data-act="toggle-theme"]');
   btns.forEach((b) => {
     b.innerHTML = icon(mode === 'dark' ? 'sun' : 'moon', 22);
     b.dataset.tip = mode === 'dark' ? '切换到浅色' : '切换到深色';
   });
+  document.dispatchEvent(new CustomEvent('app-theme', { detail: mode }));
 }
 
 function paintCredits() {

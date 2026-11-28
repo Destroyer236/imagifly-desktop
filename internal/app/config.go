@@ -15,6 +15,48 @@ type Config struct {
 	Theme       string `json:"theme"`
 	Accent      string `json:"accent"`
 	DownloadDir string `json:"downloadDir"`
+	Background  string `json:"background"`
+	BgBlur      int    `json:"bgBlur"`
+	BgVeil      int    `json:"bgVeil"`
+}
+
+const (
+	maxBackgroundBytes = 8 << 20
+	maxBgBlur          = 40
+	maxBgVeil          = 90
+)
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// validBackgroundName only accepts the generated file names, never a path.
+func validBackgroundName(name string) bool {
+	if name == "" || filepath.Base(name) != name || !strings.HasPrefix(name, "background-") {
+		return false
+	}
+	ext := filepath.Ext(name)
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif":
+	default:
+		return false
+	}
+	stem := strings.TrimSuffix(strings.TrimPrefix(name, "background-"), ext)
+	if stem == "" {
+		return false
+	}
+	for i := 0; i < len(stem); i++ {
+		if stem[i] < '0' || stem[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // normalizeAccent accepts #RRGGBB only; an empty value means the built-in
@@ -59,7 +101,7 @@ func defaultDownloadDir() string {
 }
 
 func LoadConfig() *Config {
-	cfg := &Config{Theme: "dark", DownloadDir: defaultDownloadDir()}
+	cfg := &Config{Theme: "dark", DownloadDir: defaultDownloadDir(), BgBlur: 14, BgVeil: 45}
 	dir, err := configDir()
 	if err != nil {
 		return cfg
@@ -75,6 +117,13 @@ func LoadConfig() *Config {
 	cfg.Accent = normalizeAccent(cfg.Accent)
 	if strings.TrimSpace(cfg.DownloadDir) == "" {
 		cfg.DownloadDir = defaultDownloadDir()
+	}
+	cfg.BgBlur = clampInt(cfg.BgBlur, 0, maxBgBlur)
+	cfg.BgVeil = clampInt(cfg.BgVeil, 0, maxBgVeil)
+	if !validBackgroundName(cfg.Background) {
+		cfg.Background = ""
+	} else if _, err := os.Stat(filepath.Join(dir, cfg.Background)); err != nil {
+		cfg.Background = ""
 	}
 	return cfg
 }

@@ -129,6 +129,7 @@ export async function renderSettings(view) {
   bindSettingsTabs(view);
   bindAvatar(view);
   bindThemePicker(view);
+  bindCustomBg(view);
 }
 
 const RELATION_META = {
@@ -753,6 +754,135 @@ const ACCENT_PRESETS = [
   { name: '海蓝', color: '#00677A' },
 ];
 
+const MAX_BG_BYTES = 8 << 20;
+
+function customBackgroundBlock() {
+  const dark = document.documentElement.dataset.theme !== 'light';
+  const name = S.cfg?.background || '';
+  const url = S.cfg?.backgroundURL || (name ? `/local/background?v=${encodeURIComponent(name)}` : '');
+  const blur = Math.max(0, Math.min(40, Number(S.cfg?.bgBlur ?? 14)));
+  const veil = Math.max(0, Math.min(90, Number(S.cfg?.bgVeil ?? 45)));
+  const preview = url
+    ? `style="background-image:url('${UI.esc(url)}')"`
+    : '';
+  return `<section class="sect" id="customBgSection">${UI.sectionHead('自定义背景', '深色模式专属 · 模糊与雾罩可调')}
+    <div class="card pad-sm custom-bg-card ${dark ? '' : 'is-disabled'}">
+      ${dark ? '<input id="customBgFile" class="custom-bg-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">' : ''}
+      <div class="custom-bg-preview ${url ? 'has-image' : 'is-empty'}" ${preview}>
+        ${url ? '<span class="custom-bg-tag">当前背景</span>' : `<div class="custom-bg-empty">${icon('image', 26)}<span>还没有背景图片<br>上传一张，深色模式会铺满整个窗口</span></div>`}
+      </div>
+      <div class="custom-bg-main">
+        <div class="custom-bg-head">
+          <div class="main">
+            <div class="t">背景图片</div>
+            <div class="s">${url ? '已上传 · 仅深色模式生效，浅色模式会自动关闭' : '支持 JPG、PNG、WebP、GIF，单张不超过 8 MB'}</div>
+          </div>
+          <div class="custom-bg-acts">
+            <button class="btn tonal sm" data-act="pick-bg"${dark ? '' : ' disabled'}>${icon('image', 16)}${url ? '更换图片' : '上传图片'}</button>
+            <button class="btn text sm" data-act="remove-bg"${url && dark ? '' : ' hidden'}>移除</button>
+          </div>
+        </div>
+        ${dark ? '' : `<div class="custom-bg-note">${icon('info', 16)}<div>当前是明亮模式，自定义背景已禁用。切回深色后会自动恢复已上传的图片和参数。</div></div>`}
+        <div class="custom-bg-ranges">
+          <label class="custom-bg-range">
+            <div class="row"><span class="lbl">模糊程度</span><span class="val" id="customBgBlurVal">${blur}px</span></div>
+            <input id="customBgBlur" type="range" min="0" max="40" step="1" value="${blur}"${dark ? '' : ' disabled'} aria-label="背景模糊程度">
+            <div class="hint">0 为原图，数值越大背景越虚化。</div>
+          </label>
+          <label class="custom-bg-range">
+            <div class="row"><span class="lbl">雾罩程度</span><span class="val" id="customBgVeilVal">${veil}%</span></div>
+            <input id="customBgVeil" type="range" min="0" max="90" step="1" value="${veil}"${dark ? '' : ' disabled'} aria-label="背景雾罩程度">
+            <div class="hint">压暗背景、保证前景文字可读；0 为完全透亮。</div>
+          </label>
+        </div>
+      </div>
+    </div></section>`;
+}
+
+function bindCustomBg(view) {
+  const blur = view.querySelector('#customBgBlur');
+  const veil = view.querySelector('#customBgVeil');
+  if (!blur || !veil) return;
+  const file = view.querySelector('#customBgFile');
+  const pick = view.querySelector('[data-act="pick-bg"]');
+  pick?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    file?.click();
+  });
+  file?.addEventListener('change', () => uploadCustomBg(file, view));
+  const preview = (key, value) => {
+    UI.applyCustomBackground({
+      ...(S.cfg || {}),
+      bgBlur: Number(blur.value),
+      bgVeil: Number(veil.value),
+      [key]: value,
+    });
+    const label = view.querySelector(key === 'bgBlur' ? '#customBgBlurVal' : '#customBgVeilVal');
+    if (label) label.textContent = key === 'bgBlur' ? `${value}px` : `${value}%`;
+  };
+  blur.addEventListener('input', () => preview('bgBlur', Number(blur.value)));
+  veil.addEventListener('input', () => preview('bgVeil', Number(veil.value)));
+  blur.addEventListener('change', () => persistBgTuning('bgBlur', Number(blur.value), view));
+  veil.addEventListener('change', () => persistBgTuning('bgVeil', Number(veil.value), view));
+}
+
+async function uploadCustomBg(input, view) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  if (file.size > MAX_BG_BYTES) {
+    UI.toast('背景图片不能大于 8 MB', 'error');
+    return;
+  }
+  const form = new FormData();
+  form.append('file', file);
+  UI.toast('正在上传背景…', 'info');
+  try {
+    const cfg = await api('/local/background', { method: 'POST', form, timeout: 30000 });
+    S.cfg = { ...(S.cfg || {}), ...cfg };
+    UI.applyCustomBackground(S.cfg);
+    refreshAppearance(view);
+    UI.toast('背景已更新', 'ok');
+  } catch (e) {
+    UI.toast(e.message, 'error');
+  }
+}
+
+async function persistBgTuning(key, value, view) {
+  const previous = Number(S.cfg?.[key] ?? (key === 'bgBlur' ? 14 : 45));
+  S.cfg = { ...(S.cfg || {}), [key]: value };
+  try {
+    const cfg = await api('/local/config', { method: 'PATCH', body: { [key]: value } });
+    S.cfg = { ...(S.cfg || {}), ...cfg };
+    UI.applyCustomBackground(S.cfg);
+  } catch (e) {
+    S.cfg = { ...(S.cfg || {}), [key]: previous };
+    UI.applyCustomBackground(S.cfg);
+    const input = view.querySelector(key === 'bgBlur' ? '#customBgBlur' : '#customBgVeil');
+    if (input) input.value = String(previous);
+    const label = view.querySelector(key === 'bgBlur' ? '#customBgBlurVal' : '#customBgVeilVal');
+    if (label) label.textContent = key === 'bgBlur' ? `${previous}px` : `${previous}%`;
+    UI.toast(e.message, 'error');
+  }
+}
+
+function refreshAppearance(view) {
+  const panel = view.querySelector('[data-settings-panel="appearance"]');
+  if (!panel) return;
+  panel.innerHTML = appearanceBlock();
+  bindThemePicker(view);
+  bindCustomBg(view);
+}
+
+document.addEventListener('app-theme', () => {
+  const panel = document.querySelector('[data-settings-panel="appearance"]');
+  if (!panel) return;
+  panel.innerHTML = appearanceBlock();
+  bindThemePicker(panel);
+  bindCustomBg(panel);
+});
+
 function appearanceBlock() {
   const accent = UI.normalizeAccent(S.cfg?.accent || '');
   const inputColor = accent || '#0061A6';
@@ -776,7 +906,8 @@ function appearanceBlock() {
         </label>
       </div>
       <div class="field-help" style="margin-top:10px">选预设，或点击右侧调色盘选择任意颜色；按钮、卡片、侧栏与背景会立即同步。</div>
-    </div></section>`;
+    </div></section>
+    ${customBackgroundBlock()}`;
 }
 
 function bindThemePicker(view) {
@@ -1201,6 +1332,24 @@ export const accountActions = {
       S.account.devices = await api('/local/oauth/devices');
       UI.toast('已撤销', 'ok');
       refreshCurrentAccountPage();
+    } catch (e) {
+      UI.toast(e.message, 'error');
+    }
+  },
+  'remove-bg': async () => {
+    const ok = await UI.confirmSheet({
+      title: '移除自定义背景',
+      text: '已上传的背景图片会从本机删除，模糊和雾罩参数会保留。',
+      confirm: '移除',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const cfg = await api('/local/background', { method: 'DELETE' });
+      S.cfg = { ...(S.cfg || {}), ...cfg };
+      UI.applyCustomBackground(S.cfg);
+      refreshAppearance(document);
+      UI.toast('已移除自定义背景', 'ok');
     } catch (e) {
       UI.toast(e.message, 'error');
     }

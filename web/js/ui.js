@@ -251,6 +251,24 @@ export function applyAccent(raw) {
   root.style.setProperty('--brand-gradient', `linear-gradient(135deg, rgba(${pr},${pg},${pb},.16), rgba(${cr},${cg},${cb},.28) 55%, rgba(240,196,108,.10))`);
 }
 
+export function applyCustomBackground(cfg = S.cfg) {
+  const root = document.documentElement;
+  const dark = root.dataset.theme !== 'light';
+  const name = cfg?.background || '';
+  const url = cfg?.backgroundURL || (name ? `/local/background?v=${encodeURIComponent(name)}` : '');
+  const blur = clamp(Number(cfg?.bgBlur ?? 14), 0, 40);
+  const veil = clamp(Number(cfg?.bgVeil ?? 45), 0, 90);
+  root.style.setProperty('--bg-blur', `${blur}px`);
+  root.style.setProperty('--bg-veil', String(veil / 100));
+  if (url && dark) {
+    root.style.setProperty('--bg-image', `url("${url}")`);
+    root.dataset.customBg = 'on';
+  } else {
+    root.style.removeProperty('--bg-image');
+    delete root.dataset.customBg;
+  }
+}
+
 function localMediaURL(path) {
   // Video/fallback media stays on a second loopback origin so it cannot
   // consume the browser's six connections for the JSON API.

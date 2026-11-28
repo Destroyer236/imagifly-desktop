@@ -126,6 +126,10 @@ func (s *Server) Handler() http.Handler {
 			"theme":         s.Cfg.Theme,
 			"accent":        s.Cfg.Accent,
 			"downloadDir":   s.Cfg.DownloadDir,
+			"background":    s.Cfg.Background,
+			"backgroundURL": backgroundURL(s.Cfg.Background),
+			"bgBlur":        s.Cfg.BgBlur,
+			"bgVeil":        s.Cfg.BgVeil,
 			"configDir":     mustConfigDir(),
 			"sessionCookie": s.API.LoggedIn(),
 			"version":       s.Version,
@@ -137,6 +141,8 @@ func (s *Server) Handler() http.Handler {
 			Theme       *string `json:"theme"`
 			Accent      *string `json:"accent"`
 			DownloadDir *string `json:"downloadDir"`
+			BgBlur      *int    `json:"bgBlur"`
+			BgVeil      *int    `json:"bgVeil"`
 		}
 		if err := decodeJSON(r, &in); err != nil {
 			return nil, err
@@ -166,6 +172,18 @@ func (s *Server) Handler() http.Handler {
 				return nil, badRequest("下载目录不可用: " + err.Error())
 			}
 			s.Cfg.DownloadDir = *in.DownloadDir
+		}
+		if in.BgBlur != nil {
+			if *in.BgBlur < 0 || *in.BgBlur > maxBgBlur {
+				return nil, badRequest("模糊程度必须在 0–40 之间")
+			}
+			s.Cfg.BgBlur = *in.BgBlur
+		}
+		if in.BgVeil != nil {
+			if *in.BgVeil < 0 || *in.BgVeil > maxBgVeil {
+				return nil, badRequest("雾罩程度必须在 0–90 之间")
+			}
+			s.Cfg.BgVeil = *in.BgVeil
 		}
 		if err := SaveConfig(s.Cfg); err != nil {
 			return nil, err
@@ -359,6 +377,17 @@ func (s *Server) Handler() http.Handler {
 	}, 5*time.Second))
 	mux.HandleFunc("POST /local/reveal", s.wrap(s.handleReveal, 20*time.Second))
 	mux.HandleFunc("POST /local/open", s.wrap(s.handleOpenExternal, 20*time.Second))
+
+	// --- custom background -------------------------------------------------
+	mux.HandleFunc("GET /local/background", s.serveBackground)
+	mux.HandleFunc("POST /local/background", func(w http.ResponseWriter, r *http.Request) {
+		s.wrap(func(_ context.Context, req *http.Request) (any, error) {
+			return s.handleBackgroundUpload(w, req)
+		}, 30*time.Second)(w, r)
+	})
+	mux.HandleFunc("DELETE /local/background", s.wrap(func(_ context.Context, r *http.Request) (any, error) {
+		return s.handleBackgroundDelete(r)
+	}, 10*time.Second))
 
 	// static UI
 	mux.Handle("GET /", http.FileServer(http.FS(s.Web)))
