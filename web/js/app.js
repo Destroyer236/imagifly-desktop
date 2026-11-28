@@ -334,6 +334,7 @@ function showLogin(tab = 'login') {
         ${tab === 'register' ? `<div class="field"><label>昵称</label><div class="field-box">${icon('person', 18)}<input id="lgName" placeholder="至少 2 个字符" autocomplete="nickname"></div></div>` : ''}
         <div class="field"><label>邮箱</label><div class="field-box">${icon('send', 18)}<input id="lgEmail" type="email" placeholder="user@example.com" autocomplete="username" required></div></div>
         <div class="field"><label>密码</label><div class="field-box">${icon('lock', 18)}<input id="lgPass" type="password" placeholder="••••••••" autocomplete="${tab === 'login' ? 'current-password' : 'new-password'}" required></div></div>
+        ${tab === 'register' ? `<div class="field"><label>确认密码</label><div class="field-box">${icon('lock', 18)}<input id="lgPass2" type="password" placeholder="再次输入密码" autocomplete="new-password" required></div></div>` : ''}
         <button class="btn filled lg wide" id="lgSubmit" type="submit">${tab === 'login' ? '登录' : '注册'}</button>
         <div class="login-foot">本应用为第三方桌面客户端，与 imagifly 官方无隶属关系。登录即代表你同意该网站的服务条款；会话仅保存在本机。</div>
       </form>
@@ -357,12 +358,20 @@ function showLogin(tab = 'login') {
       errBox.innerHTML = `<div class="field-error">请填写邮箱和密码</div>`;
       return;
     }
+    if (tab === 'register') {
+      const confirm = app.querySelector('#lgPass2').value;
+      const fail = (msg) => { errBox.innerHTML = `<div class="field-error">${UI.esc(msg)}</div>`; };
+      if (name.length < 2) return fail('昵称至少需要 2 个字符');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return fail('邮箱格式不正确，请检查后重试');
+      if (password.length < 8) return fail('密码至少需要 8 位字符');
+      if (password !== confirm) return fail('两次输入的密码不一致');
+    }
     submit.disabled = true;
     const old = submit.innerHTML;
     submit.innerHTML = `${UI.wavyRing(22, 2, 7, 4)}<span>处理中…</span>`;
     try {
       if (tab === 'register') {
-        const res = await api('/local/auth/register', { method: 'POST', body: { name, email, password } });
+        const res = await api('/local/auth/register', { method: 'POST', body: { name, email, password, confirmPassword: app.querySelector('#lgPass2').value } });
         if (res.loggedIn) {
           await afterLogin();
         } else {

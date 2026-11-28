@@ -10,11 +10,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"imagiflydesk/internal/imagiapi"
 )
+
+// emailPattern is a deliberately loose check; the site re-validates the address.
+var emailPattern = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]{2,}$`)
 
 // --- auth ------------------------------------------------------------------
 
@@ -267,21 +271,29 @@ func (s *Server) handleLogin(ctx context.Context, r *http.Request) (any, error) 
 
 func (s *Server) handleRegister(ctx context.Context, r *http.Request) (any, error) {
 	var in struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Name            string `json:"name"`
+		Email           string `json:"email"`
+		Password        string `json:"password"`
+		ConfirmPassword string `json:"confirmPassword"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		return nil, err
 	}
 	in.Name = strings.TrimSpace(in.Name)
+	in.Email = strings.TrimSpace(in.Email)
 	if len([]rune(in.Name)) < 2 {
 		return nil, badRequest("昵称至少需要 2 个字符")
 	}
-	if strings.TrimSpace(in.Email) == "" || len(in.Password) < 6 {
-		return nil, badRequest("请填写有效邮箱和至少 6 位密码")
+	if !emailPattern.MatchString(in.Email) {
+		return nil, badRequest("邮箱格式不正确，请检查后重试")
 	}
-	sess, err := s.API.Register(ctx, in.Name, strings.TrimSpace(in.Email), in.Password)
+	if len(in.Password) < 8 {
+		return nil, badRequest("密码至少需要 8 位字符")
+	}
+	if in.ConfirmPassword != "" && in.ConfirmPassword != in.Password {
+		return nil, badRequest("两次输入的密码不一致")
+	}
+	sess, err := s.API.Register(ctx, in.Name, in.Email, in.Password)
 	if err != nil {
 		return nil, err
 	}

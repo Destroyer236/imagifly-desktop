@@ -41,6 +41,25 @@ var codeMessages = map[string]string{
 	"already_exists":                     "内容已存在，请勿重复提交",
 }
 
+// englishMessages maps the few validation sentences the site returns in plain
+// English (the auth forms do not localize) onto Chinese UI copy. Keys are
+// lowercased and stripped of trailing punctuation.
+var englishMessages = map[string]string{
+	"name must be at least 2 characters":                                    "昵称至少需要 2 个字符",
+	"please enter a valid email address":                                    "邮箱格式不正确，请检查后重试",
+	"passwords do not match":                                                "两次输入的密码不一致",
+	"password must be at least 8 characters":                                "密码至少需要 8 位字符",
+	"this email is already registered. please sign in with your email and password instead": "该邮箱已注册，请直接用邮箱和密码登录",
+	"this email is already registered":                                      "该邮箱已注册，请直接登录",
+	"email already registered":                                              "该邮箱已注册，请直接登录",
+	"invalid email or password":                                             "邮箱或密码不正确",
+	"too many attempts. please try again later":                             "尝试次数过多，请稍后再试",
+}
+
+func normalizeEnglish(s string) string {
+	return strings.ToLower(strings.TrimRight(strings.TrimSpace(s), ".!?。"))
+}
+
 func hasChinese(s string) bool {
 	for _, r := range s {
 		if unicode.Is(unicode.Han, r) {
@@ -66,6 +85,9 @@ func looksTechnical(s string) bool {
 // unknown codes fall back to the HTTP status before the original text.
 func LocalizedError(code string, status int, raw string) string {
 	if msg, ok := codeMessages[strings.ToLower(strings.TrimSpace(code))]; ok {
+		return msg
+	}
+	if msg, ok := englishMessages[normalizeEnglish(raw)]; ok {
 		return msg
 	}
 	if raw != "" && !looksTechnical(raw) && hasChinese(raw) {

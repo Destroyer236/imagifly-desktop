@@ -45,11 +45,18 @@ func (c *Client) Login(ctx context.Context, email, password string) (*SessionRes
 
 // Register creates an account. The site issues the session cookie on success
 // when email verification is not required; otherwise the caller should log in.
+// The site validates a second password field (confirmPassword) and rejects the
+// request with "Passwords do not match." when it is absent, so it is always sent.
 func (c *Client) Register(ctx context.Context, name, email, password string) (*SessionResponse, error) {
 	resp, body, err := c.Do(ctx, Request{
-		Method:    http.MethodPost,
-		Path:      "/api/auth/register",
-		Body:      map[string]string{"name": name, "email": email, "password": password},
+		Method: http.MethodPost,
+		Path:   "/api/auth/register",
+		Body: map[string]string{
+			"name":            name,
+			"email":           email,
+			"password":        password,
+			"confirmPassword": password,
+		},
 		Timestamp: true,
 	})
 	if err != nil {

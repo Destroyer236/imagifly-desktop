@@ -17,7 +17,7 @@ var Coverage = []CoverageRow{
 	{1, "POST", "/api/auth/login", "Login", "登录页", "实测", "已接入", "Set-Cookie 落到 DPAPI 加密的 accounts.bin"},
 	{2, "POST", "/api/auth/logout", "Logout", "账号", "实测", "已接入", ""},
 	{3, "GET", "/api/auth/me", "Me", "启动 / 全屏刷新", "实测", "已接入", "user:null（200）按未登录处理"},
-	{4, "POST", "/api/auth/register", "Register", "登录页 · 注册", "实测", "已接入", "本地生成 X-Registration-Timestamp"},
+	{4, "POST", "/api/auth/register", "Register", "登录页 · 注册", "实测", "已接入", "本地生成 X-Registration-Timestamp；提交 confirmPassword"},
 	{5, "GET", "/api/auth/register/timestamp", "ServerTimestamp", "内部", "实测", "已接入", "时钟偏差时自动回退"},
 	{6, "—", "/api/auth/locale", "—", "—", "未验证", "跳过", "POST 实测 405，语言由 imagifly-locale Cookie 承担"},
 	{7, "POST", "/api/credits/daily", "Daily", "账号 · 每日签到", "实测", "已接入", "按天幂等，claimed:false 不报错"},

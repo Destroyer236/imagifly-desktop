@@ -16,7 +16,7 @@
 | 1 | `POST /api/auth/login` | `Login` | `POST /local/auth/login` | 登录页 | 实测 | 已接入 | 解析 `Set-Cookie`，DPAPI 保存 |
 | 2 | `POST /api/auth/logout` | `Logout` | `POST /local/auth/logout` | 设置 → 退出 | 实测 | 已接入 | 同时清本地 session.bin |
 | 3 | `GET /api/auth/me` | `Me` | `GET /local/session` | 启动、全屏刷新 | 实测 | 已接入 | `user:null`（200）按未登录处理 |
-| 4 | `POST /api/auth/register` | `Register` | `POST /local/auth/register` | 登录页 → 注册 | 实测到字段校验 | 已接入 | 本地生成时间戳令牌；403 自动重试 |
+| 4 | `POST /api/auth/register` | `Register` | `POST /local/auth/register` | 登录页 → 注册 | 实测到字段校验 | 已接入 | 本地生成时间戳令牌；提交 confirmPassword；403 自动重试 |
 | 5 | `GET /api/auth/register/timestamp` | `ServerTimestamp` | `GET /local/auth/register/timestamp` | 内部兜底 | 实测 | 已接入 | 仅在时钟偏差时使用 |
 | 6 | `/api/auth/locale` | — | — | — | 未验证 | 跳过 | POST 实测 405；每个请求带 `imagifly-locale=zh` |
 | 7 | `POST /api/credits/daily` | `Daily` | `POST /local/credits/daily` | 积分 → 签到 | 实测 | 已接入 | 按天幂等，`claimed:false` 不报错 |
