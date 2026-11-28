@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -108,7 +109,8 @@ func demoVisibleTasks(tasks []any) []any {
 	return visible
 }
 
-func demoFixture(path string) (any, bool) {	now := time.Now()
+func demoFixture(path string) (any, bool) {
+	now := time.Now()
 	iso := func(d time.Duration) string { return now.Add(-d).Format(time.RFC3339) }
 	user := map[string]any{
 		"id": "usr_demo", "name": "Zephyr", "email": "demo@imagifly.net",
@@ -128,20 +130,38 @@ func demoFixture(path string) (any, bool) {	now := time.Now()
 	}
 
 	summary := map[string]any{
-		"stats":       map[string]any{"imageGenerations": 8, "videoGenerations": 1, "likeCount": 12, "publicCommunityCount": 3, "successfulGenerations": 8, "spentCredits": 16},
+		"stats":       map[string]any{"imageGenerations": 8, "videoGenerations": 1, "likeCount": 12, "publicCommunityCount": 3, "successfulGenerations": 8, "spentCredits": 64},
 		"creditUsage": map[string]any{"totalCredits": 5070, "availableCredits": 5006, "usedCredits": 64, "usedPercentage": 1.26},
 		"creditBreakdown": []any{
 			map[string]any{"source": "daily", "credits": 6, "percentage": 0.12},
 			map[string]any{"source": "subscription", "credits": 1200, "percentage": 23.6},
 			map[string]any{"source": "other", "credits": 3800, "percentage": 76.28},
 		},
+		"creditExpiryBreakdown": []any{
+			map[string]any{"key": "3d", "label": "3 天内", "credits": 17, "percentage": 0.34, "nearestExpiresAt": iso(-15 * time.Hour)},
+			map[string]any{"key": "3to7", "label": "3–7 天", "credits": 0, "percentage": 0},
+			map[string]any{"key": "7plus", "label": "7 天以上", "credits": 4989, "percentage": 99.66},
+		},
 	}
 
-	history := map[string]any{"transactions": []any{
+	usageDays := []int{1, 2, 4, 6, 9, 11, 14, 17, 21, 25, 28, 32, 36, 41, 46, 52, 59, 67, 76, 86}
+	usageCosts := []float64{2, 3, 1, 4, 2, 5, 3, 2, 6, 4, 2, 5, 1, 7, 3, 2, 2, 4, 1, 3}
+	transactions := []any{
 		map[string]any{"id": "ctx_1", "kind": "free_daily_grant", "credits": 10, "description": "每日免费额度", "createdAt": iso(2 * time.Hour), "expiresAt": iso(-22 * time.Hour)},
 		map[string]any{"id": "ctx_2", "kind": "generation_debit", "credits": -2, "description": "生成图片", "model": "gpt-image-2", "createdAt": iso(90 * time.Minute)},
 		map[string]any{"id": "ctx_3", "kind": "referral_rebate", "credits": 30, "description": "邀请返利", "createdAt": iso(3 * 24 * time.Hour)},
-	}}
+	}
+	for i, day := range usageDays {
+		transactions = append(transactions, map[string]any{
+			"id":          fmt.Sprintf("ctx_use_%02d", i+1),
+			"kind":        "generation_debit",
+			"credits":     -usageCosts[i],
+			"description": "生成图片",
+			"model":       []string{"gpt-image-2", "nano-banana-2", "Wai-SDXL-V150", "Z-Image-Turbo"}[i%4],
+			"createdAt":   iso(time.Duration(day*24+i) * time.Hour),
+		})
+	}
+	history := map[string]any{"transactions": transactions}
 
 	notifications := map[string]any{"userId": "usr_demo", "items": []any{
 		map[string]any{"id": "ntf_1", "type": "like", "title": "收到 3 个赞", "message": "你的作品《清晨的玻璃温室》被 3 人点赞。", "read": false, "createdAt": iso(20 * time.Minute)},

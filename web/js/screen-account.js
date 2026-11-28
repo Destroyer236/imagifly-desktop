@@ -68,6 +68,7 @@ export async function renderCredits(view) {
   view.innerHTML = `<div class="page">
     ${errorBanner(errors)}
     ${creditHero()}
+    ${creditInsights()}
     ${statsBlock()}
     ${historyBlock()}
     ${packagesBlock()}
@@ -336,6 +337,169 @@ function creditHero() {
       </div>
     </div>
   </section>`;
+}
+
+const EXPIRY_LABELS = ['3 天内', '3–7 天', '7 天以上'];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function creditNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function expiryBucketIndex(item) {
+  const txt = `${item?.key ?? ''} ${item?.bucket ?? ''} ${item?.range ?? ''} ${item?.id ?? ''} ${item?.label ?? ''} ${item?.name ?? ''}`
+    .toLowerCase().replace(/[\s_-]/g, '');
+  if (/3.*7/.test(txt)) return 1;
+  if (/0.*3|3d|3天|within3|urgent/.test(txt)) return 0;
+  if (/7/.test(txt) && !/plus|above|more|after|over|later|超过|以上|greater/.test(txt)) return 1;
+  if (/7|later|plus|以上/.test(txt)) return 2;
+  const days = Number(item?.days ?? item?.maxDays);
+  if (Number.isFinite(days)) return days <= 3 ? 0 : (days <= 7 ? 1 : 2);
+  return -1;
+}
+
+function relativeExpiry(iso) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  if (ms < 60 * 60 * 1000) return `${Math.max(1, Math.round(ms / 60000))} 分钟后`;
+  if (ms < DAY_MS) return `${Math.round(ms / (60 * 60 * 1000))} 小时后`;
+  const days = Math.floor(ms / DAY_MS);
+  if (days < 7) return `${days} 天后`;
+  return `${Math.floor(days / 7)} 周后`;
+}
+
+function expiryData() {
+  const available = creditNum(S.account.summary?.creditUsage?.availableCredits ?? S.user?.credits);
+  const raw = S.account.summary?.creditExpiryBreakdown;
+  const entries = Array.isArray(raw)
+    ? raw
+    : (raw && Array.isArray(raw.buckets) ? raw.buckets
+      : (raw && Array.isArray(raw.items) ? raw.items
+        : (raw && typeof raw === 'object' ? Object.entries(raw).map(([key, value]) => (
+          value && typeof value === 'object' ? { key, ...value } : { key, credits: value }
+        )) : [])));
+  const buckets = [0, 0, 0];
+  let nearest = null;
+  for (const item of entries) {
+    if (!item || typeof item !== 'object') continue;
+    const idx = expiryBucketIndex(item);
+    if (idx < 0) continue;
+    buckets[idx] += Math.max(0, creditNum(item.credits ?? item.amount ?? item.value ?? item.availableCredits ?? item.remainingCredits));
+    const at = item.nearestExpiresAt || item.expiresAt || item.nextExpiresAt;
+    if (at && new Date(at).getTime() > Date.now()) {
+      if (!nearest || new Date(at).getTime() < new Date(nearest.at).getTime()) {
+        nearest = { at, credits: Math.max(0, creditNum(item.credits ?? item.amount ?? 0)) };
+      }
+    }
+  }
+  if (buckets.some((v) => v > 0)) {
+    const rest = available - buckets.reduce((a, b) => a + b, 0);
+    if (rest > 0.5) buckets[2] += rest;
+    return { buckets, nearest, known: true };
+  }
+
+  const grants = (S.account.history?.transactions || []).filter((t) => (
+    creditNum(t.credits) > 0 && t.expiresAt && new Date(t.expiresAt).getTime() > Date.now()
+  ));
+  if (!grants.length) return { buckets, nearest: null, known: false };
+  const hasRemaining = grants.some((t) => typeof t.remainingCredits === 'number');
+  const rawLots = grants.map((t) => ({
+    credits: typeof t.remainingCredits === 'number' ? Math.max(0, creditNum(t.remainingCredits)) : creditNum(t.credits),
+    at: t.expiresAt,
+  })).filter((t) => t.credits > 0);
+  const lotTotal = rawLots.reduce((a, b) => a + b.credits, 0);
+  const scale = !hasRemaining && lotTotal > 0 && available > 0 ? available / lotTotal : 1;
+  rawLots.forEach((t) => {
+    const ms = new Date(t.at).getTime() - Date.now();
+    const idx = ms <= 3 * DAY_MS ? 0 : (ms <= 7 * DAY_MS ? 1 : 2);
+    const credits = t.credits * scale;
+    buckets[idx] += credits;
+    if (!nearest || new Date(t.at).getTime() < new Date(nearest.at).getTime()) nearest = { at: t.at, credits };
+  });
+  return { buckets, nearest, known: true };
+}
+
+function pctLabel(pct) {
+  if (pct <= 0) return '0%';
+  if (pct < 0.01) return '<0.01%';
+  return `${pct.toFixed(2).replace(/\.?0+$/, '')}%`;
+}
+
+function expiryCard() {
+  const data = expiryData();
+  const total = data.buckets.reduce((a, b) => a + b, 0);
+  const pcts = data.buckets.map((v) => (total ? (v / total) * 100 : 0));
+  const available = creditNum(S.account.summary?.creditUsage?.availableCredits ?? S.user?.credits);
+  const lead = data.nearest
+    ? `<b class="num">${UI.fmtCredits(data.nearest.credits)}</b><span>积分将在 <b>${relativeExpiry(data.nearest.at) || '近期'}</b>过期</span>`
+    : (data.buckets[0] > 0
+      ? `<b class="num">${UI.fmtCredits(data.buckets[0])}</b><span>积分将在 <b>3 天内</b>过期</span>`
+      : `<span>${data.known ? '暂无即将过期的积分' : '积分有效期明细暂不可用'}</span>`);
+  const segments = data.buckets.map((v, i) => (
+    v > 0 ? `<i class="seg${i}" style="width:${pcts[i]}%"></i>` : ''
+  )).join('');
+  return `<article class="insight-card expiry-card">
+    <div class="insight-head">
+      <div class="ih"><span class="ih-icon">${icon('clock', 18)}</span><div><h3>积分过期分布</h3><p>按剩余有效期统计</p></div></div>
+      <span class="insight-note">可用 ${UI.fmtCredits(available)}</span>
+    </div>
+    <div class="expiry-lead">${lead}</div>
+    <div class="expiry-bar">${segments}</div>
+    <div class="expiry-legend">${EXPIRY_LABELS.map((label, i) => (
+      `<span><i class="dot${i}"></i>${label}<b>${pctLabel(pcts[i])}</b></span>`
+    )).join('')}</div>
+  </article>`;
+}
+
+function usageCard() {
+  const now = new Date();
+  const txns = (S.account.history?.transactions || []).filter((t) => creditNum(t.credits) < 0 && t.createdAt);
+  const byDay = new Map();
+  txns.forEach((t) => {
+    const d = new Date(t.createdAt);
+    if (Number.isNaN(d.getTime())) return;
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    byDay.set(key, (byDay.get(key) || 0) + Math.abs(creditNum(t.credits)));
+  });
+  const months = [2, 1, 0].map((back) => {
+    const first = new Date(now.getFullYear(), now.getMonth() - back, 1);
+    const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    return { year: first.getFullYear(), month: first.getMonth() + 1, days };
+  }).filter((m) => m.year > 2000);
+  const values = [];
+  months.forEach((m) => {
+    for (let d = 1; d <= m.days; d++) values.push(byDay.get(`${m.year}-${m.month}-${d}`) || 0);
+  });
+  const max = Math.max(1, ...values);
+  const total = values.reduce((a, b) => a + b, 0);
+  const activeDays = values.filter((v) => v > 0).length;
+  const rows = months.map((m) => {
+    const cells = [];
+    for (let d = 1; d <= 31; d++) {
+      const key = `${m.year}-${m.month}-${d}`;
+      const v = d <= m.days ? (byDay.get(key) || 0) : 0;
+      const level = v > 0 ? Math.min(4, 1 + Math.floor((v / max) * 3.999)) : 0;
+      const today = now.getFullYear() === m.year && now.getMonth() + 1 === m.month && now.getDate() === d;
+      cells.push(`<span class="uc u${level}${today ? ' is-today' : ''}${d > m.days ? ' is-blank' : ''}"${v > 0 ? ` title="${m.month} 月 ${d} 日 · 消耗 ${UI.fmtCredits(v)} 积分"` : ''}></span>`);
+    }
+    return `<div class="usage-row"><span class="um">${m.month}月</span><div class="usage-cells" style="--days:31">${cells.join('')}</div></div>`;
+  }).join('');
+  return `<article class="insight-card usage-card">
+    <div class="insight-head">
+      <div class="ih"><span class="ih-icon">${icon('grid', 18)}</span><div><h3>积分使用分布</h3><p>近 3 个月</p></div></div>
+      <span class="insight-note">${UI.fmtCredits(total)} 积分 · ${activeDays} 天有消耗</span>
+    </div>
+    <div class="usage-grid">${rows}</div>
+    <div class="usage-foot">
+      <span>${activeDays ? '按每日消耗强度着色' : '近 3 个月暂无消耗记录'}</span>
+      <div class="usage-scale"><span>少</span><i class="uc u0"></i><i class="uc u1"></i><i class="uc u2"></i><i class="uc u3"></i><i class="uc u4"></i><span>多</span></div>
+    </div>
+  </article>`;
+}
+
+function creditInsights() {
+  return `<section class="credit-insights">${expiryCard()}${usageCard()}</section>`;
 }
 
 function statsBlock() {

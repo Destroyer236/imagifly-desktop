@@ -906,6 +906,44 @@ a.link { color: var(--primary); }
 .credit-info .facts { display: flex; gap: 18px; margin-top: 8px; color: var(--on-surface-variant); font-size: 12px; }
 .credit-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 
+.credit-insights { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.35fr); gap: 14px; margin-top: 14px; }
+.insight-card { padding: 18px 20px; border-radius: var(--r-lg); background: var(--surface-container); min-width: 0; }
+.insight-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.insight-head .ih { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.insight-head .ih-icon { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface-high); color: var(--primary); }
+.insight-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; letter-spacing: -.01em; }
+.insight-head p { margin: 2px 0 0; font-size: 11px; color: var(--on-surface-variant); }
+.insight-note { flex: none; font-size: 11px; color: var(--on-surface-variant); }
+.expiry-lead { display: flex; align-items: baseline; gap: 5px; margin-top: 18px; font-size: 13px; color: var(--on-surface-variant); }
+.expiry-lead .num { font-family: var(--font-display); font-size: 20px; font-weight: 650; color: var(--on-surface); }
+.expiry-lead b { color: var(--on-surface); font-weight: 620; }
+.expiry-bar { display: flex; height: 13px; margin-top: 14px; border-radius: var(--r-full); background: var(--surface-high); overflow: hidden; }
+.expiry-bar > i { display: block; height: 100%; min-width: 4px; }
+.expiry-bar .seg0 { background: var(--error); }
+.expiry-bar .seg1 { background: var(--warning); }
+.expiry-bar .seg2 { background: var(--success); }
+.expiry-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; font-size: 11.5px; color: var(--on-surface-variant); }
+.expiry-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.expiry-legend i { width: 7px; height: 7px; border-radius: 50%; }
+.expiry-legend b { color: var(--on-surface); font-weight: 600; }
+.expiry-legend .dot0 { background: var(--error); }
+.expiry-legend .dot1 { background: var(--warning); }
+.expiry-legend .dot2 { background: var(--success); }
+.usage-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
+.usage-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; align-items: center; }
+.usage-row .um { font-size: 11px; color: var(--on-surface-variant); white-space: nowrap; }
+.usage-cells { display: grid; grid-template-columns: repeat(var(--days), minmax(0, 1fr)); gap: 3px; }
+.uc { aspect-ratio: 1; border-radius: 3px; background: var(--surface-high); }
+.uc.u1 { background: color-mix(in srgb, var(--primary) 24%, var(--surface-high)); }
+.uc.u2 { background: color-mix(in srgb, var(--primary) 44%, var(--surface-high)); }
+.uc.u3 { background: color-mix(in srgb, var(--primary) 66%, var(--surface-high)); }
+.uc.u4 { background: color-mix(in srgb, var(--primary) 88%, var(--surface-high)); }
+.uc.is-today { box-shadow: inset 0 0 0 1px var(--on-surface-variant); }
+.uc.is-blank { background: transparent; box-shadow: none; }
+.usage-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 11px; color: var(--on-surface-variant); }
+.usage-scale { display: flex; align-items: center; gap: 4px; flex: none; }
+.usage-scale .uc { width: 10px; height: 10px; aspect-ratio: auto; flex: none; }
+
 .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .stat { padding: 14px 16px; border-radius: var(--r-md); background: var(--surface-high); }
 .stat .v { font-family: var(--font-display); font-size: 22px; font-weight: 620; }
@@ -1283,6 +1321,7 @@ a.link { color: var(--primary); }
   .composer { padding: 18px; }
   .composer-foot { flex-wrap: wrap; }
   .credit-hero { flex-direction: column; align-items: flex-start; }
+  .credit-insights { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .grid.three, .grid.four { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .detail { grid-template-columns: 1fr; }
