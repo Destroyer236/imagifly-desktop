@@ -69,9 +69,13 @@ function fastestMirror() {
 
 function primaryButtonHTML() {
   const downloading = state.progress?.state === 'downloading';
-  const done = state.progress?.state === 'done' && state.progress?.kind === 'setup';
+  const done = state.progress?.state === 'done';
+  if (done && state.progress?.kind === 'portable') {
+    return `<button class="btn filled sm" data-act="upd-folder">${icon('folder', 16)}打开下载目录</button>`;
+  }
+  const setupDone = done && state.progress?.kind === 'setup';
   const busy = state.oneClick || downloading;
-  const label = busy ? '更新中…' : (done ? '安装并重启' : '一键更新');
+  const label = busy ? '更新中…' : (setupDone ? '安装并重启' : '一键更新');
   return `<button class="btn filled sm" data-act="upd-oneclick"${busy ? ' disabled' : ''}>${icon('bolt', 16)}${label}</button>`;
 }
 
@@ -90,7 +94,9 @@ function heroHTML() {
     : UI.esc(current);
 
   const sub = info?.hasUpdate
-    ? `发布于 ${UI.esc(UI.fmtDate(info.publishedAt))} · 一键更新会自动测速、下载并静默安装`
+    ? (info.installKind === 'portable'
+      ? `发布于 ${UI.esc(UI.fmtDate(info.publishedAt))} · 一键更新会自动测速并下载免安装包，解压后覆盖当前目录`
+      : `发布于 ${UI.esc(UI.fmtDate(info.publishedAt))} · 一键更新会自动测速、下载并静默安装`)
     : info
       ? `当前已是最新版本 · 上次检查 ${UI.esc(UI.fmtDate(new Date(info.checkedAt).toISOString(), true))}`
       : '正在向 GitHub 查询最新版本…';
@@ -102,6 +108,7 @@ function heroHTML() {
         <h1 class="upd-title">${title}</h1>
         <p class="upd-sub">${sub}</p>
         <div class="upd-hero-pills">${status}
+          ${info?.installKind ? `<span class="pill">${info.installKind === 'portable' ? '免安装版' : '安装版'}</span>` : ''}
           ${info?.hasUpdate && assetOf('setup') ? `<span class="pill">安装版 ${fmtBytes(assetOf('setup').size)}</span>` : ''}
           ${info?.hasUpdate && assetOf('portable') ? `<span class="pill">免安装 ${fmtBytes(assetOf('portable').size)}</span>` : ''}
         </div>
@@ -136,7 +143,7 @@ function progressHTML() {
   if (p.state === 'done') {
     const isSetup = p.kind === 'setup';
     return `<section class="sect upd-panel">
-      ${UI.sectionHead('安装包已就绪', `${mirrorName(p.mirror)} · ${UI.esc(p.asset || '')} · ${fmtBytes(p.received)}`)}
+      ${UI.sectionHead(isSetup ? '安装包已就绪' : '免安装包已就绪', `${mirrorName(p.mirror)} · ${UI.esc(p.asset || '')} · ${fmtBytes(p.received)}`)}
       <div class="card pad-sm upd-progress-card">
         <div class="upd-progress-meta">
           <span>${icon('check', 16)}${isSetup ? '已下载到本地，安装完成后会自动删除这个安装包。' : '已下载到本地，解压后覆盖旧目录即可使用。'}</span>
@@ -218,9 +225,10 @@ function tipsHTML() {
     ${UI.sectionHead('说明', '更新流程与本地文件')}
     <div class="card pad-sm upd-tips">
       <ul>
-        <li>「一键更新」会自动测速、选最快镜像，下载完成后直接静默安装。</li>
+        <li>「一键更新」会自动识别安装版 / 免安装版，测速后下载对应包；安装版下载完直接静默安装。</li>
         <li>下载走本机直连镜像，安装包保存在 <span class="mono">${UI.esc(state.dir || '%AppData%\\ImagiflyDesktop\\updates')}</span>。</li>
         <li>安装版为静默安装：保留账号、设置与作品记录，安装完成后客户端会自动重启。</li>
+        <li>免安装版下载的是 zip：解压后覆盖当前目录即可，运行中的 exe 无法安全自替换。</li>
         <li>安装包用完后会自动删除；启动时也会清理遗留的旧安装包。</li>
         <li>免安装版是 zip，需要解压后覆盖原目录使用；安装版是 exe，可直接安装。</li>
         <li>个别镜像有缓存或限速，测速结果只代表当下这一次请求。</li>
@@ -316,7 +324,9 @@ function startPolling() {
       paint();
       if (p?.state === 'done' && lastToastState !== 'done') {
         lastToastState = 'done';
-        if (!state.autoInstall) UI.toast('安装包下载完成，可以安装了', 'ok');
+        if (!state.autoInstall) {
+          UI.toast(p.kind === 'portable' ? '免安装包下载完成，解压后覆盖当前目录' : '安装包下载完成，可以安装了', 'ok');
+        }
       }
       if (p?.state === 'error' && lastToastState !== 'error') {
         lastToastState = 'error';
@@ -382,15 +392,16 @@ export const updateActions = {
       }
       paint();
       UI.toast(`发现新版本 ${versionText(state.info.latest)}，正在选择最快镜像…`, 'ok');
-      if (!assetOf('setup')) throw new Error('该版本没有安装版安装包，请在下方手动下载免安装版');
-      state.autoInstall = true;
+      const wanted = state.info.installKind === 'portable' ? 'portable' : 'setup';
+      if (!assetOf(wanted)) throw new Error(wanted === 'portable' ? '该版本没有免安装包，请在下方手动下载安装版' : '该版本没有安装版安装包，请在下方手动下载免安装版');
+      state.autoInstall = wanted === 'setup';
       if (!state.tests || !state.tests.some((t) => t.ok)) await runMirrorTest();
       const mid = fastestMirror()
         || state.info?.mirrors?.find((m) => m.id === 'gh-proxy')?.id
         || state.info?.mirrors?.[0]?.id;
       if (!mid) throw new Error('没有可用的下载镜像');
-      UI.toast(`使用 ${mirrorName(mid)} 下载安装包…`, 'info');
-      const res = await api('/local/update/download', { method: 'POST', body: { mirror: mid, kind: 'setup' } });
+      UI.toast(`使用 ${mirrorName(mid)} 下载${wanted === 'portable' ? '免安装包' : '安装包'}…`, 'info');
+      const res = await api('/local/update/download', { method: 'POST', body: { mirror: mid, kind: wanted } });
       state.progress = res.progress || null;
       lastToastState = '';
       state.oneClick = false;

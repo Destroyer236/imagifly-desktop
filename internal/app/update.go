@@ -58,6 +58,7 @@ type updateInfo struct {
 	PublishedAt string         `json:"publishedAt"`
 	Notes       string         `json:"notes"`
 	PageURL     string         `json:"pageURL"`
+	InstallKind string         `json:"installKind"`
 	Assets      []updateAsset  `json:"assets"`
 	Mirrors     []updateMirror `json:"mirrors"`
 	CheckedAt   time.Time      `json:"checkedAt"`
@@ -137,6 +138,23 @@ func assetKind(name string) string {
 	return ""
 }
 
+// detectInstallKind distinguishes the Inno Setup install from the portable zip
+// by looking for the uninstaller that Setup writes next to the executable.
+func detectInstallKind() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "portable"
+	}
+	dir := filepath.Dir(exe)
+	for _, pattern := range []string{"unins*.exe", "unins*.dat"} {
+		matches, _ := filepath.Glob(filepath.Join(dir, pattern))
+		if len(matches) > 0 {
+			return "setup"
+		}
+	}
+	return "portable"
+}
+
 func (s *Server) fetchLatestRelease(force bool) (*updateInfo, error) {
 	s.relMu.Lock()
 	if !force && s.relInfo != nil && time.Since(s.relAt) < 5*time.Minute {
@@ -175,6 +193,7 @@ func (s *Server) fetchLatestRelease(force bool) (*updateInfo, error) {
 		PublishedAt: rel.PublishedAt,
 		Notes:       strings.TrimSpace(rel.Body),
 		PageURL:     updatePageURL,
+		InstallKind: detectInstallKind(),
 		Mirrors:     updateMirrors,
 		CheckedAt:   time.Now(),
 		Assets:      make([]updateAsset, 0, 2),
