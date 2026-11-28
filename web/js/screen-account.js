@@ -40,6 +40,8 @@ function settingsRequests() {
     ['gallery', '/local/gallery?section=summary'],
     ['follows', '/local/community/follows'],
     ['notifications', '/local/notifications'],
+    ['inbox', '/local/notifications?inbox=1'],
+    ['sessionLikes', '/local/session?include=likesReceived'],
     ['devices', '/local/oauth/devices'],
     ['accounts', '/local/accounts'],
   ];
@@ -600,8 +602,12 @@ function ownPublicWorks() {
 function receivedLikeCount() {
   const stats = S.account.summary?.stats;
   if (stats && typeof stats.likeCount === 'number') return stats.likeCount;
-  if (!S.account.mineImages || !S.account.mineVideos) return null;
-  return ownPublicWorks().reduce((sum, x) => sum + (Number(x.likeCount) || 0), 0);
+  if (S.account.mineImages && S.account.mineVideos) {
+    return ownPublicWorks().reduce((sum, x) => sum + (Number(x.likeCount) || 0), 0);
+  }
+  const aggregated = S.account.sessionLikes?.likesReceived;
+  if (typeof aggregated === 'number') return aggregated;
+  return null;
 }
 
 function profileBlock() {
@@ -677,7 +683,57 @@ function accountsBlock() {
   </section>`;
 }
 
-function notifBlock() {  const list = S.account.notifications?.items || [];
+const INBOX_TYPES = {
+  redemption: '兑换到账',
+  follow: '新增关注',
+  comment: '收到评论',
+  like: '收到点赞',
+  credits: '积分变动',
+  membership: '会员权益',
+};
+
+function inboxTitle(n) {
+  if (n.kind === 'redemption') {
+    const reward = n.reward || {};
+    if (reward.type === 'membership') {
+      const tier = reward.tier ? String(reward.tier).toUpperCase() : '';
+      const months = reward.months ? `${reward.months} 个月` : '';
+      return `会员兑换 · ${[tier, months].filter(Boolean).join(' ')}`;
+    }
+    if (reward.type === 'credits' && reward.credits) return `积分兑换 · ${UI.fmtCredits(reward.credits)}`;
+    return '兑换到账';
+  }
+  if (n.kind === 'follow') return n.count ? `新增 ${n.count} 位关注者` : '新增关注';
+  return INBOX_TYPES[n.kind] || n.title || '收件箱消息';
+}
+
+function inboxBody(n) {
+  if (n.kind === 'redemption') {
+    const parts = [];
+    if (n.campaignName) parts.push(n.campaignName);
+    if (n.expiresAt) parts.push(`有效期至 ${UI.fmtDate(n.expiresAt)}`);
+    return parts.join(' · ');
+  }
+  return n.message || n.body || '';
+}
+
+function inboxBlock() {
+  const items = S.account.inbox?.items || [];
+  const unread = items.filter((n) => !n.read).length;
+  const rows = items.slice(0, 6).map((n) => {
+    const body = inboxBody(n);
+    return `<div class="notif ${n.read ? '' : 'unread'}">
+      <div class="t">${n.read ? '' : '<span class="dot"></span>'}${UI.esc(inboxTitle(n))}<span class="muted" style="margin-left:auto;font-size:10.5px">${UI.timeAgo(n.createdAt)}</span></div>
+      ${body ? `<div class="b">${UI.esc(body)}</div>` : ''}
+      ${n.read || !n.id ? '' : `<div style="margin-top:8px"><button class="btn text xs" data-act="inbox-read" data-id="${UI.esc(n.id)}">标记已读</button></div>`}
+    </div>`;
+  }).join('');
+  return `<section class="sect">${UI.sectionHead('收件箱', unread ? `${unread} 条未读` : `${items.length} 条`, `<button class="btn text xs" data-act="inbox-read-all">全部已读</button><button class="btn text xs" data-act="inbox-clear">清空</button>`)}
+    <div class="card pad-sm" style="padding:14px">${rows || UI.emptyState('bell', '收件箱是空的', '兑换到账、关注与审核消息会进到这里；系统通知仍在上方。')}</div></section>`;
+}
+
+function notifBlock() {
+  const list = S.account.notifications?.items || [];
   const rows = list.slice(0, 6).map((n) => {
     const unread = !(n.read || n.isRead);
     const title = n.title || NOTIF_TYPES[n.type] || '通知';
@@ -689,7 +745,8 @@ function notifBlock() {  const list = S.account.notifications?.items || [];
     </div>`;
   }).join('');
   return `<section class="sect">${UI.sectionHead('通知', `${list.length} 条`, `<button class="btn text xs" data-act="notif-read-all">全部已读</button><button class="btn text xs" data-act="notif-clear">清空</button>`)}
-    <div class="card pad-sm" style="padding:14px">${rows || UI.emptyState('bell', '没有通知', '点赞、关注与审核结果会出现在这里。')}</div></section>`;
+    <div class="card pad-sm" style="padding:14px">${rows || UI.emptyState('bell', '没有通知', '点赞、关注与审核结果会出现在这里。')}</div></section>
+    ${inboxBlock()}`;
 }
 
 function referralBlock() {
@@ -1296,6 +1353,36 @@ export const accountActions = {
     try {
       await api(`/local/notifications?uid=${encodeURIComponent(S.user?.id || '')}`, { method: 'DELETE' });
       S.account.notifications = { items: [] };
+      refreshCurrentAccountPage();
+    } catch (e) {
+      UI.toast(e.message, 'error');
+    }
+  },
+  'inbox-read': async (d) => {
+    try {
+      await api(`/local/notifications?inbox=1&id=${encodeURIComponent(d.id)}&uid=${encodeURIComponent(S.user?.id || '')}`, { method: 'PATCH' });
+      S.account.inbox = await api('/local/notifications?inbox=1');
+      refreshCurrentAccountPage();
+    } catch (e) {
+      UI.toast(e.message, 'error');
+    }
+  },
+  'inbox-read-all': async () => {
+    try {
+      await api(`/local/notifications?inbox=1&all=1&uid=${encodeURIComponent(S.user?.id || '')}`, { method: 'PATCH' });
+      S.account.inbox = await api('/local/notifications?inbox=1');
+      UI.toast('收件箱已全部标记为已读', 'ok');
+      refreshCurrentAccountPage();
+    } catch (e) {
+      UI.toast(e.message, 'error');
+    }
+  },
+  'inbox-clear': async () => {
+    const ok = await UI.confirmSheet({ title: '清空收件箱', text: '将删除收件箱里的全部消息，确定继续？', confirm: '清空', danger: true });
+    if (!ok) return;
+    try {
+      await api(`/local/notifications?inbox=1&uid=${encodeURIComponent(S.user?.id || '')}`, { method: 'DELETE' });
+      S.account.inbox = { items: [] };
       refreshCurrentAccountPage();
     } catch (e) {
       UI.toast(e.message, 'error');

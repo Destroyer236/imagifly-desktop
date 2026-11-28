@@ -20,6 +20,8 @@ import (
 
 func (s *Server) handleSession(ctx context.Context, r *http.Request) (any, error) {
 	empty := map[string]any{"user": nil, "billing": nil}
+	// The site only returns the aggregated like counter when asked for it.
+	withLikes := strings.Contains(r.URL.Query().Get("include"), "likesReceived")
 
 	s.accountsMu.Lock()
 	book := loadAccountBook()
@@ -43,7 +45,13 @@ func (s *Server) handleSession(ctx context.Context, r *http.Request) (any, error
 		s.API.SetSession(active.Session)
 		s.accountsMu.Unlock()
 
-		me, err := s.API.Me(ctx)
+		var me *imagiapi.SessionResponse
+		var err error
+		if withLikes {
+			me, err = s.API.MeWithLikes(ctx)
+		} else {
+			me, err = s.API.Me(ctx)
+		}
 		if err != nil {
 			if !imagiapi.IsAuthError(err) {
 				return nil, err
@@ -743,14 +751,52 @@ func (s *Server) handleNotificationsPatch(ctx context.Context, r *http.Request) 
 	q := r.URL.Query()
 	all := q.Get("all") == "1"
 	id := q.Get("id")
+	inbox := q.Get("inbox") == "1"
 	if !all && id == "" {
 		return nil, badRequest("缺少 id 或 all=1")
 	}
-	return s.API.MarkNotification(ctx, q.Get("uid"), id, all)
+	return s.API.MarkNotification(ctx, q.Get("uid"), id, all, inbox)
 }
 
 func (s *Server) handleNotificationsClear(ctx context.Context, r *http.Request) (any, error) {
-	return s.API.ClearNotifications(ctx, r.URL.Query().Get("uid"))
+	return s.API.ClearNotifications(ctx, r.URL.Query().Get("uid"), r.URL.Query().Get("inbox") == "1")
+}
+
+// --- community feed telemetry ---------------------------------------------
+
+func (s *Server) handleFeedView(ctx context.Context, r *http.Request) (any, error) {
+	var in struct {
+		ImageID string `json:"imageId"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.ImageID) == "" {
+		return nil, badRequest("缺少 imageId")
+	}
+	return s.API.FeedEventView(ctx, strings.TrimSpace(in.ImageID))
+}
+
+func (s *Server) handleFeedDwell(ctx context.Context, r *http.Request) (any, error) {
+	var in struct {
+		ImageID    string `json:"imageId"`
+		DurationMs int    `json:"durationMs"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.ImageID) == "" {
+		return nil, badRequest("缺少 imageId")
+	}
+	// The site accepts 1s–30min; clamp so a long-idle sheet still counts once.
+	ms := in.DurationMs
+	if ms < 1000 {
+		return map[string]any{"counted": false}, nil
+	}
+	if ms > 1800000 {
+		ms = 1800000
+	}
+	return s.API.FeedEventDwell(ctx, strings.TrimSpace(in.ImageID), ms)
 }
 
 // --- referral / redemption / billing --------------------------------------

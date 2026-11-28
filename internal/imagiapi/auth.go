@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 )
 
 // Login exchanges credentials for a session cookie (spec §3.1).
@@ -75,6 +76,25 @@ func (c *Client) Register(ctx context.Context, name, email, password string) (*S
 // Me returns the current account. An anonymous call is a 200 with user:null.
 func (c *Client) Me(ctx context.Context) (*SessionResponse, error) {
 	raw, err := c.Call(ctx, Request{Path: "/api/auth/me", Auth: true})
+	if err != nil {
+		return nil, err
+	}
+	var out SessionResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	if out.User == nil {
+		c.SetSession("")
+	}
+	return &out, nil
+}
+
+// MeWithLikes is Me plus the aggregated "likes received" counter that the site
+// only adds when include=likesReceived is present.
+func (c *Client) MeWithLikes(ctx context.Context) (*SessionResponse, error) {
+	q := url.Values{}
+	q.Set("include", "likesReceived")
+	raw, err := c.Call(ctx, Request{Path: "/api/auth/me", Query: q, Auth: true})
 	if err != nil {
 		return nil, err
 	}

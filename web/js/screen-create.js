@@ -267,7 +267,7 @@ function template() {
           <textarea id="prompt" rows="3" maxlength="2000" placeholder="${mode === 'image' ? '描述你想要的画面：主体、光线、材质、构图…' : '描述镜头里的动作、场景与运镜…'}">${UI.esc(S.compose.prompt)}</textarea>
         </div>
         <div class="prompt-meta">
-          <button class="btn text xs" data-act="optimize" id="optimizeBtn">${icon('sparkle', 16)}优化提示词</button>
+          <span id="optimizeSlot">${optimizeSlotHTML(m, mode)}</span>
           <span id="langSlot">${langSlotHTML(m)}</span>
           <span class="count" id="promptCount">${S.compose.prompt.length} / 2000</span>
         </div>
@@ -320,6 +320,19 @@ function langSlotHTML(model) {
   return `<button class="btn text xs" data-act="translate-prompt" id="translateBtn" data-tip="该模型更容易理解英文提示词">${icon('translate', 16)}译成英文</button>`;
 }
 
+// 上游只给 Wai-SDXL 系列开放提示词优化（服务端会拒绝其它模型），所以按钮
+// 跟着模型走，换成别的模型就收起来，避免点了必然 400。
+const OPTIMIZE_MODELS = /^Wai-SDXL/i;
+
+export function supportsPromptOptimize(model, mode = 'image') {
+  return mode === 'image' && OPTIMIZE_MODELS.test(String(model?.id || ''));
+}
+
+function optimizeSlotHTML(model, mode) {
+  if (!supportsPromptOptimize(model, mode)) return '';
+  return `<button class="btn text xs" data-act="optimize" id="optimizeBtn" data-tip="仅 Wai-SDXL 系列支持，会译成英文">${icon('sparkle', 16)}优化提示词</button>`;
+}
+
 function modelDisplayLabel() {
   if (S.compose.mode === 'image') return currentImageModel()?.label || '选择模型';
   const vm = currentVideoModel();
@@ -362,6 +375,8 @@ function refreshComposer(view) {
   const cost = mode === 'image' ? imageCost() : videoCost();
   const langSlot = root.querySelector('#langSlot');
   if (langSlot) langSlot.innerHTML = langSlotHTML(m);
+  const optimizeSlot = root.querySelector('#optimizeSlot');
+  if (optimizeSlot) optimizeSlot.innerHTML = optimizeSlotHTML(m, mode);
   const value = root.querySelector('#costValue');
   if (value) value.textContent = `≈ ${UI.fmtNum(cost)} 额度`;
   const hint = root.querySelector('#costHint');
@@ -586,7 +601,18 @@ async function doOptimize(view) {
     UI.toast('先写提示词再优化', 'warn');
     return;
   }
+  const mode = S.compose.mode;
+  const spec = mode === 'image' ? currentImageModel() : currentVideoModel();
+  if (!supportsPromptOptimize(spec, mode)) {
+    UI.toast('提示词优化只对 Wai-SDXL 系列开放', 'info');
+    return;
+  }
+  if (!/[\u4e00-\u9fff]/.test(prompt)) {
+    UI.toast('提示词已经是英文，无需优化', 'info');
+    return;
+  }
   const btn = view.querySelector('#optimizeBtn');
+  if (!btn) return;
   const old = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `${UI.wavyRing(16, 1.6, 6, 4)}<span>优化中…</span>`;

@@ -271,10 +271,17 @@ func (s *Server) Handler() http.Handler {
 
 	// --- notifications ---------------------------------------------------
 	mux.HandleFunc("GET /local/notifications", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {
+		if r.URL.Query().Get("inbox") == "1" {
+			return s.API.NotificationsInbox(ctx)
+		}
 		return s.API.Notifications(ctx)
 	}, 30*time.Second))
 	mux.HandleFunc("PATCH /local/notifications", s.wrap(s.handleNotificationsPatch, 30*time.Second))
 	mux.HandleFunc("DELETE /local/notifications", s.wrap(s.handleNotificationsClear, 30*time.Second))
+
+	// --- community feed telemetry ----------------------------------------
+	mux.HandleFunc("POST /local/feed/events/view", s.wrap(s.handleFeedView, 20*time.Second))
+	mux.HandleFunc("POST /local/feed/events/dwell", s.wrap(s.handleFeedDwell, 20*time.Second))
 
 	// --- referral / redemption -------------------------------------------
 	mux.HandleFunc("GET /local/referral/summary", s.wrap(func(ctx context.Context, r *http.Request) (any, error) {

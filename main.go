@@ -22,7 +22,7 @@ import (
 //go:embed web
 var webBundle embed.FS
 
-const version = "1.2.31"
+const version = "1.2.32"
 
 func main() {
 	enableDPIAwareness()

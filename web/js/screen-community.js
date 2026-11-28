@@ -165,19 +165,35 @@ async function applySearch(value) {
   document.getElementById('comGrid')?.closest('.sect')?.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
+// 社区曝光埋点：进详情记一次 view，关详情按停留时长补一条 dwell（1s–30min）。
+function trackDwell(id, openedAt) {
+  if (!openedAt) return;
+  const ms = Date.now() - openedAt;
+  if (ms < 1000) return;
+  api('/local/feed/events/dwell', { method: 'POST', body: { imageId: id, durationMs: Math.min(ms, 1800000) } }).catch(() => {});
+}
+
 export async function openCommunity(id) {
   let timer = null;
+  let openedAt = 0;
   const sheet = UI.openSheet({
     title: '社区作品',
     subtitle: id,
     size: 'wide',
     body: `<div class="loading-page"><div class="skel" style="height:240px"></div><div class="skel" style="height:80px"></div></div>`,
-    onClose: () => timer && clearInterval(timer),
+    onClose: () => {
+      if (timer) clearInterval(timer);
+      trackDwell(id, openedAt);
+    },
   });
   const load = async () => {
     try {
       const data = await api('/local/community/' + encodeURIComponent(id));
       paintCommunity(sheet, data.item, load);
+      if (!openedAt) {
+        openedAt = Date.now();
+        api('/local/feed/events/view', { method: 'POST', body: { imageId: id } }).catch(() => {});
+      }
     } catch (e) {
       sheet.body.innerHTML = `<div class="banner error">${icon('alert', 20)}<div>${UI.esc(e.message)}</div></div>`;
     }

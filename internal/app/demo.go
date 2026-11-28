@@ -34,6 +34,12 @@ func (s *Server) demoMiddleware(next http.Handler) http.Handler {
 				_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 				return
 			}
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/local/feed/events/") {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-store")
+				_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": map[string]any{"counted": true}})
+				return
+			}
 			if r.Method == http.MethodGet {
 				if id, ok := strings.CutPrefix(r.URL.Path, "/local/generations/"); ok && id != "" {
 					if _, gone := demoDeleted.Load(id); gone {
@@ -43,7 +49,7 @@ func (s *Server) demoMiddleware(next http.Handler) http.Handler {
 						return
 					}
 				}
-				if data, ok := demoFixture(r.URL.Path); ok {
+				if data, ok := demoFixture(r.URL.Path, r.URL.Query().Get("inbox") == "1"); ok {
 					w.Header().Set("Content-Type", "application/json; charset=utf-8")
 					w.Header().Set("Cache-Control", "no-store")
 					_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "data": data})
@@ -109,7 +115,7 @@ func demoVisibleTasks(tasks []any) []any {
 	return visible
 }
 
-func demoFixture(path string) (any, bool) {
+func demoFixture(path string, inbox bool) (any, bool) {
 	now := time.Now()
 	iso := func(d time.Duration) string { return now.Add(-d).Format(time.RFC3339) }
 	user := map[string]any{
@@ -168,6 +174,14 @@ func demoFixture(path string) (any, bool) {
 		map[string]any{"id": "ntf_2", "type": "moderation", "title": "作品已通过审核", "message": "《雨夜的便利店橱窗》已公开到社区。", "read": true, "createdAt": iso(6 * time.Hour)},
 	}}
 
+	// The inbox feed is separate from system notifications (?inbox=1).
+	inboxFeed := map[string]any{"userId": "usr_demo", "items": []any{
+		map[string]any{"id": "ntf_inbox_1", "kind": "redemption", "read": false, "campaignName": "感谢桌面端的贡献~",
+			"reward": map[string]any{"tier": "pro", "type": "membership", "months": 1},
+			"createdAt": iso(26 * time.Hour), "expiresAt": iso(-29 * 24 * time.Hour)},
+		map[string]any{"id": "ntf_inbox_2", "kind": "follow", "read": true, "count": 2, "createdAt": iso(3 * 24 * time.Hour)},
+	}, "nextCursor": nil}
+
 	referral := map[string]any{"summary": map[string]any{
 		"inviteLink": "https://imagifly.net/r/DEMO2026", "canInvite": true,
 		"earnedCredits": 30, "pendingCredits": 0, "availableCredits": 30, "expiringCredits": 0,
@@ -205,6 +219,9 @@ func demoFixture(path string) (any, bool) {
 	case "/local/profile/credit-history":
 		return history, true
 	case "/local/notifications":
+		if inbox {
+			return inboxFeed, true
+		}
 		return notifications, true
 	case "/local/referral/summary":
 		return referral, true

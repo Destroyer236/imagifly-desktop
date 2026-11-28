@@ -55,16 +55,20 @@
 | 40 | `POST /api/billing/checkout` | `Checkout` | `POST /local/billing/checkout` | 套餐 → 订阅 | 实测 401 + 源码 | 已接入 | 返回 Stripe URL，系统浏览器打开 |
 | 41 | `GET /api/billing/checkout/status` | `CheckoutStatus` | `GET /local/billing/checkout/status` | 支付回跳轮询 | 源码 + 401 | 已接入 | 1.5s × 10 轮询 |
 | 42 | `POST /api/billing/webhook` | — | — | — | 实测（验签） | 不调用 | Stripe 服务端回调，规范明确客户端不要调用 |
-| 43 | `POST /api/prompts/optimize` | `OptimizePrompt` | `POST /local/prompts/optimize` | 创作 → 优化提示词 | 源码 + 401 | 已接入 | 30s 客户端超时；兼容多种响应形状 |
-| 44 | `GET/POST/DELETE /api/developer/api-keys` | `APIKeys` / `CreateAPIKey` / `DeleteAPIKey` | `GET/POST /local/developer/api-keys`、`DELETE /local/developer/api-keys/{id}` | 开发者 → API Key | 实测 | 已接入 | 明文只在创建响应里出现一次 |
+| 43 | `POST /api/prompts/optimize` | `OptimizePrompt` | `POST /local/prompts/optimize` | 创作 → 优化提示词 | 实测 200/400 | 已接入 | 仅 `Wai-SDXL-V150/V170` 接受（且提示词需中文），其它模型 400 |
+| 44 | `GET/POST/DELETE /api/developer/api-keys` | `APIKeys` / `CreateAPIKey` / `DeleteAPIKey` | `GET/POST /local/developer/api-keys`、`DELETE /local/developer/api-keys/{id}` | 开发者 → API Key | 实测 | 已接入 | 明文在 `plaintextKey`，并带 `recoverable:true` |
 | 45 | `GET/DELETE /api/oauth/devices[/{id}]` | `Devices` / `DeleteDevice` | `GET /local/oauth/devices`、`DELETE /local/oauth/devices/{id}` | 设置 → 设备 | 实测 | 已接入 | 删除需二次确认 |
 | 46 | `POST /api/mcp` | `MCP` | `POST /local/mcp` | 开发者 → MCP 控制台 | 实测 | 已接入 | Bearer `imf_…`；JSON-RPC 2.0 重新封装 |
 | 47 | `GET /api/admin/community/{id}` | `AdminCommunity` | `GET /local/admin/community/{id}` | 无常规入口 | 实测 403 | 已定义 | 需管理员角色；普通账号会收到 403 |
+| 48 | `POST /api/feed/events/view` | `FeedEventView` | `POST /local/feed/events/view` | 社区 → 打开详情 | 实测 | 已接入 | 202 `{"counted":true}`；曝光埋点 |
+| 49 | `POST /api/feed/events/dwell` | `FeedEventDwell` | `POST /local/feed/events/dwell` | 社区 → 关闭详情 | 实测 | 已接入 | 停留埋点，1s–30min，过短返回 `counted:false` |
+| 50 | `GET /api/notifications?inbox=1` | `NotificationsInbox` | `GET /local/notifications?inbox=1` | 账号 → 收件箱 | 实测 | 已接入 | 与系统通知是两套数据；已读/清空同样带 `inbox=1` |
+| 51 | `GET /api/auth/me?include=likesReceived` | `MeWithLikes` | `GET /local/session?include=likesReceived` | 账号 → 资料卡 | 实测 | 已接入 | 只在 `include=likesReceived` 时多返回 `likesReceived` |
 
 ## 统计
 
-- 总数：**47**
-- 已接入（界面/业务流程）：**44**
+- 总数：**51**（原 47 项 + 巡检新增 4 项）
+- 已接入（界面/业务流程）：**48**
 - 已定义（仅 API 能力）：**1**（#47）
 - 跳过（规范明确可省略，用 Cookie 等价实现）：**1**（#6）
 - 不调用（服务端专用）：**1**（#42）
@@ -76,7 +80,7 @@
 | #6 locale | 方法未确认 | 不发请求，注入 `imagifly-locale=zh` | 无 |
 | #11 avatar | multipart 字段名未验证 | 先 `avatar`，400 时改用 `file` | 两次失败会在界面显示上游错误 |
 | #12 password | 请求体未验证 | `{currentPassword,newPassword}` | 上游 400 时原样展示错误 |
-| #43 optimize | 响应结构未验证 | 兼容 string / `prompt` / `optimizedPrompt` / `text` | 空响应提示“未返回文本” |
+| #43 optimize | 上游已收紧 | 仅 `Wai-SDXL-*` 图片模型显示入口；提示词需含中文 | 非 Wai 模型上游返回 400，客户端已提前拦截 |
 | #22 likes | 成功体未验证 | 按 `{ok}` 宽松处理 | 点赞按钮以返回值刷新 |
 | #26 remix | 成功体未验证 | 生成成功后静默登记 | 失败不阻塞主流程，仅日志 |
 | #27 visibility | 成功体未验证 | 以返回的可见性/乐观更新为准 | 403 回滚并提示 Pro/Max |
@@ -85,7 +89,7 @@
 
 ## 复查方式
 
-1. 启动程序 → 开发者 → 接口覆盖：47 行、可按“已接入/已定义/跳过/不调用”筛选。
+1. 启动程序 → 开发者 → 接口覆盖：51 行、可按“已接入/已定义/跳过/不调用”筛选。
 2. 开发者 → 接口自检：14 项公共端点实机请求，当前 14/14。
 3. `imagifly-desktop.exe -selftest`：同一套自检的控制台版本。
 4. `go test ./...`：验证请求头/幂等键/multipart 字段/错误信封/注册令牌/域名白名单。

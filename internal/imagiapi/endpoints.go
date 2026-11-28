@@ -202,18 +202,59 @@ func (c *Client) Notifications(ctx context.Context) (json.RawMessage, error) {
 	return c.Call(ctx, Request{Path: "/api/notifications", Auth: true})
 }
 
-func (c *Client) MarkNotification(ctx context.Context, userID, id string, all bool) (json.RawMessage, error) {
+// NotificationsInbox reads the notification inbox (?inbox=1), which is a
+// separate feed from the system notifications returned by Notifications.
+func (c *Client) NotificationsInbox(ctx context.Context) (json.RawMessage, error) {
+	q := url.Values{}
+	q.Set("inbox", "1")
+	return c.Call(ctx, Request{Path: "/api/notifications", Query: q, Auth: true})
+}
+
+func (c *Client) MarkNotification(ctx context.Context, userID, id string, all, inbox bool) (json.RawMessage, error) {
 	q := url.Values{}
 	if all {
 		q.Set("all", "1")
 	} else if id != "" {
 		q.Set("id", id)
 	}
+	if inbox {
+		q.Set("inbox", "1")
+	}
 	return c.Call(ctx, Request{Method: http.MethodPatch, Path: "/api/notifications", Query: q, Auth: true, NotifyAcct: userID})
 }
 
-func (c *Client) ClearNotifications(ctx context.Context, userID string) (json.RawMessage, error) {
-	return c.Call(ctx, Request{Method: http.MethodDelete, Path: "/api/notifications", Auth: true, NotifyAcct: userID})
+func (c *Client) ClearNotifications(ctx context.Context, userID string, inbox bool) (json.RawMessage, error) {
+	q := url.Values{}
+	if inbox {
+		q.Set("inbox", "1")
+	}
+	return c.Call(ctx, Request{Method: http.MethodDelete, Path: "/api/notifications", Query: q, Auth: true, NotifyAcct: userID})
+}
+
+// --- Community feed telemetry ---------------------------------------------
+
+// FeedEventView reports a community item impression. The site deduplicates per
+// viewer/item and answers {"counted":true}; failures are not user-facing.
+func (c *Client) FeedEventView(ctx context.Context, imageID string) (json.RawMessage, error) {
+	return c.Call(ctx, Request{
+		Method:  http.MethodPost,
+		Path:    "/api/feed/events/view",
+		Body:    map[string]string{"imageId": imageID},
+		Auth:    true,
+		Timeout: 15 * time.Second,
+	})
+}
+
+// FeedEventDwell reports an attention span. The site only accepts 1s–30min and
+// silently clamps outside that window.
+func (c *Client) FeedEventDwell(ctx context.Context, imageID string, durationMs int) (json.RawMessage, error) {
+	return c.Call(ctx, Request{
+		Method:  http.MethodPost,
+		Path:    "/api/feed/events/dwell",
+		Body:    map[string]any{"imageId": imageID, "durationMs": durationMs},
+		Auth:    true,
+		Timeout: 15 * time.Second,
+	})
 }
 
 // --- Referral & redemption ------------------------------------------------

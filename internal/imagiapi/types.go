@@ -32,6 +32,9 @@ type Billing struct {
 type SessionResponse struct {
 	User    *User    `json:"user"`
 	Billing *Billing `json:"billing"`
+	// LikesReceived is only present when the caller asked for
+	// include=likesReceived (see MeWithLikes).
+	LikesReceived *int `json:"likesReceived,omitempty"`
 }
 
 // DailyResult is POST /api/credits/daily.

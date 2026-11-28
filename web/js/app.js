@@ -248,6 +248,7 @@ function warmCache() {
     '/local/gallery?section=summary',
     '/local/community/follows',
     '/local/notifications',
+    '/local/notifications?inbox=1',
     '/local/accounts',
   ];
   const run = () => {
