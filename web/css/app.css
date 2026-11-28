@@ -1520,3 +1520,249 @@ a.link { color: var(--primary); }
 .prefs-tabs .tab { display: inline-flex; align-items: center; gap: 7px; }
 .prefs-tabs .tab svg { opacity: .65; }
 .prefs-tabs .tab.selected svg { opacity: 1; }
+
+/* --- custom wallpaper: full glass pass ---------------------------------- */
+/* 壁纸模式下所有界面表面只保留极淡的主题色调，细节靠描边与背景模糊区分。
+   这样列表、统计卡、表格、社区卡片和弹层不会再出现整块实心深色。 */
+html[data-custom-bg="on"] {
+  --glass-tint: color-mix(in srgb, var(--surface-container) 7%, transparent);
+  --glass-raised: color-mix(in srgb, var(--surface-high) 9%, transparent);
+  --glass-faint: color-mix(in srgb, var(--surface-low) 5%, transparent);
+  --glass-accent: color-mix(in srgb, var(--primary-container) 16%, transparent);
+  --glass-accent-strong: color-mix(in srgb, var(--primary) 44%, transparent);
+  --glass-line: color-mix(in srgb, var(--outline-variant) 26%, transparent);
+}
+
+html[data-custom-bg="on"] .card,
+html[data-custom-bg="on"] .card.hero,
+html[data-custom-bg="on"] .insight-card,
+html[data-custom-bg="on"] .about-hero,
+html[data-custom-bg="on"] .about-person,
+html[data-custom-bg="on"] .run-card,
+html[data-custom-bg="on"] .pkg,
+html[data-custom-bg="on"] .pkg.featured,
+html[data-custom-bg="on"] .credit-hero {
+  background: var(--glass-tint);
+  border-color: var(--glass-line);
+  backdrop-filter: blur(20px) saturate(1.14);
+}
+html[data-custom-bg="on"] .card.hero::before,
+html[data-custom-bg="on"] .credit-hero::before,
+html[data-custom-bg="on"] .about-hero::before { opacity: .28; }
+
+html[data-custom-bg="on"] .stat,
+html[data-custom-bg="on"] .detail-cell,
+html[data-custom-bg="on"] .pstat,
+html[data-custom-bg="on"] .social-empty,
+html[data-custom-bg="on"] .notif,
+html[data-custom-bg="on"] .notif.unread,
+html[data-custom-bg="on"] .key-row,
+html[data-custom-bg="on"] .relation-row,
+html[data-custom-bg="on"] .creator-work,
+html[data-custom-bg="on"] .gen-row,
+html[data-custom-bg="on"] .detail-prompt,
+html[data-custom-bg="on"] .upd-pop-notes,
+html[data-custom-bg="on"] .advanced-inner {
+  background: var(--glass-faint);
+  border: 1px solid transparent;
+}
+html[data-custom-bg="on"] .notif.unread,
+html[data-custom-bg="on"] .relation-row:hover,
+html[data-custom-bg="on"] .pstat.click:hover,
+html[data-custom-bg="on"] .card.click:hover {
+  background: var(--glass-raised);
+  border-color: var(--glass-line);
+}
+
+html[data-custom-bg="on"] .banner {
+  background: var(--glass-faint);
+  border: 1px solid var(--glass-line);
+}
+html[data-custom-bg="on"] .banner.warn { background: color-mix(in srgb, var(--tertiary-container) 12%, transparent); border-color: color-mix(in srgb, var(--warning) 22%, transparent); }
+html[data-custom-bg="on"] .banner.error { background: color-mix(in srgb, var(--error-container) 16%, transparent); border-color: color-mix(in srgb, var(--error) 24%, transparent); }
+html[data-custom-bg="on"] .custom-bg-note { background: color-mix(in srgb, var(--warning) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent); }
+
+html[data-custom-bg="on"] .rail-item.active,
+html[data-custom-bg="on"] .seg-item.selected {
+  background: var(--glass-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+html[data-custom-bg="on"] .chip.selected {
+  background: color-mix(in srgb, var(--secondary-container) 17%, transparent);
+  border: 1px solid color-mix(in srgb, var(--secondary) 30%, transparent);
+}
+html[data-custom-bg="on"] .account-row.active { background: color-mix(in srgb, var(--secondary-container) 16%, transparent); }
+html[data-custom-bg="on"] .btn.outlined.liked { background: color-mix(in srgb, var(--primary-container) 18%, transparent); }
+
+html[data-custom-bg="on"] .seg {
+  background: color-mix(in srgb, var(--surface-high) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 18%, transparent);
+}
+html[data-custom-bg="on"] .credit-pill,
+html[data-custom-bg="on"] .stepper,
+html[data-custom-bg="on"] .field-box,
+html[data-custom-bg="on"] .field-box.bare,
+html[data-custom-bg="on"] .code-box {
+  background: color-mix(in srgb, var(--surface-high) 6%, transparent);
+  border-color: var(--glass-line);
+}
+html[data-custom-bg="on"] .field-box:focus-within,
+html[data-custom-bg="on"] .field-box.bare:focus-within {
+  background: color-mix(in srgb, var(--surface-high) 10%, transparent);
+  border-color: var(--primary);
+}
+html[data-custom-bg="on"] .code-box { background: color-mix(in srgb, var(--surface-lowest) 7%, transparent); }
+html[data-custom-bg="on"] .credit-pill:hover { background: color-mix(in srgb, var(--surface-high) 11%, transparent); }
+
+html[data-custom-bg="on"] .btn.tonal,
+html[data-custom-bg="on"] .icon-btn.tonal,
+html[data-custom-bg="on"] .card.tonal,
+html[data-custom-bg="on"] .btn.elevated {
+  background: color-mix(in srgb, var(--secondary-container) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--secondary) 22%, transparent);
+}
+html[data-custom-bg="on"] .btn.tonal:hover,
+html[data-custom-bg="on"] .icon-btn.tonal:hover,
+html[data-custom-bg="on"] .btn.elevated:hover {
+  background: color-mix(in srgb, var(--secondary-container) 20%, transparent);
+}
+html[data-custom-bg="on"] .btn.filled,
+html[data-custom-bg="on"] .icon-btn.filled,
+html[data-custom-bg="on"] .fab-ext {
+  background: var(--glass-accent-strong);
+  color: var(--on-surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, transparent);
+  backdrop-filter: blur(14px) saturate(1.16) brightness(1.12);
+}
+html[data-custom-bg="on"] .btn.filled:hover,
+html[data-custom-bg="on"] .icon-btn.filled:hover,
+html[data-custom-bg="on"] .fab-ext:hover {
+  background: color-mix(in srgb, var(--primary) 54%, transparent);
+}
+html[data-custom-bg="on"] .btn.danger {
+  background: color-mix(in srgb, var(--error-container) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 28%, transparent);
+}
+html[data-custom-bg="on"] .latest-flag,
+html[data-custom-bg="on"] .new-corner {
+  background: color-mix(in srgb, var(--primary) 52%, transparent);
+  color: var(--on-surface);
+  backdrop-filter: blur(10px) brightness(1.1);
+}
+
+html[data-custom-bg="on"] .pill {
+  background: color-mix(in srgb, var(--surface-high) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 18%, transparent);
+}
+html[data-custom-bg="on"] .pill.ok,
+html[data-custom-bg="on"] .upd-mirror.fast .pill.ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--success) 26%, transparent);
+}
+html[data-custom-bg="on"] .pill.err {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  border-color: color-mix(in srgb, var(--error) 26%, transparent);
+}
+html[data-custom-bg="on"] .pill.warn {
+  background: color-mix(in srgb, var(--tertiary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--tertiary) 26%, transparent);
+}
+html[data-custom-bg="on"] .pill.run {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 26%, transparent);
+}
+html[data-custom-bg="on"] .pill.dark { background: rgba(0,0,0,.36); border-color: rgba(255,255,255,.14); }
+html[data-custom-bg="on"] .pill.mono { background: color-mix(in srgb, var(--surface-high) 5%, transparent); }
+
+html[data-custom-bg="on"] .media-card { background: transparent; }
+html[data-custom-bg="on"] .hero-tile { background: color-mix(in srgb, var(--surface-high) 8%, transparent); }
+html[data-custom-bg="on"] .media-card .meta {
+  background: var(--glass-tint);
+  border-top: 1px solid color-mix(in srgb, var(--outline-variant) 16%, transparent);
+}
+html[data-custom-bg="on"] .media-card .frame,
+html[data-custom-bg="on"] .media-card .frame .ph,
+html[data-custom-bg="on"] .media-card .frame .video-ph {
+  background: color-mix(in srgb, var(--surface-high) 8%, transparent);
+}
+html[data-custom-bg="on"] .media-card .frame .ph,
+html[data-custom-bg="on"] .media-card .frame .video-ph {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-high) 8%, transparent), color-mix(in srgb, var(--surface-container) 4%, transparent));
+}
+
+html[data-custom-bg="on"] .empty .ico,
+html[data-custom-bg="on"] .insight-head .ih-icon,
+html[data-custom-bg="on"] .list-row .ic,
+html[data-custom-bg="on"] .key-row .ic,
+html[data-custom-bg="on"] .dl-kind,
+html[data-custom-bg="on"] .about-icon,
+html[data-custom-bg="on"] .about-avatar {
+  background: var(--glass-raised);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+}
+html[data-custom-bg="on"] .avatar,
+html[data-custom-bg="on"] .about-team-avatar,
+html[data-custom-bg="on"] .about-badge,
+html[data-custom-bg="on"] .about-version {
+  background: color-mix(in srgb, var(--primary-container) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
+}
+
+html[data-custom-bg="on"] .cover-table th {
+  background: color-mix(in srgb, var(--surface) 8%, transparent);
+  border-bottom-color: var(--glass-line);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+html[data-custom-bg="on"] .table-wrap { background: color-mix(in srgb, var(--surface) 2%, transparent); border-color: var(--glass-line); }
+html[data-custom-bg="on"] .cover-table td { background: transparent; }
+
+html[data-custom-bg="on"] .dialog {
+  background: color-mix(in srgb, var(--surface-high) 30%, transparent);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 18px 60px rgba(0,0,0,.28);
+  backdrop-filter: blur(30px) saturate(1.12);
+}
+html[data-custom-bg="on"] .menu {
+  background: color-mix(in srgb, var(--surface-high) 26%, transparent);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(26px) saturate(1.12);
+}
+html[data-custom-bg="on"] .toast,
+html[data-custom-bg="on"] .toast.ok {
+  background: color-mix(in srgb, var(--inverse-surface) 68%, transparent);
+  border: 1px solid color-mix(in srgb, var(--on-surface) 14%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}
+html[data-custom-bg="on"] .toast.err {
+  background: color-mix(in srgb, var(--error-container) 68%, transparent);
+  border-color: color-mix(in srgb, var(--error) 24%, transparent);
+}
+
+html[data-custom-bg="on"] .latest-stage {
+  background: color-mix(in srgb, var(--surface-container) 5%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--glass-line));
+}
+html[data-custom-bg="on"] .latest-stage img,
+html[data-custom-bg="on"] .detail-media img,
+html[data-custom-bg="on"] .detail-media { background: transparent; }
+html[data-custom-bg="on"] .custom-bg-preview.is-empty { background: color-mix(in srgb, var(--surface-high) 10%, transparent); }
+
+html[data-custom-bg="on"] .bar,
+html[data-custom-bg="on"] .wavy-line,
+html[data-custom-bg="on"] .upd-bar {
+  background: color-mix(in srgb, var(--surface-highest) 12%, transparent);
+}
+html[data-custom-bg="on"] .uc { background: color-mix(in srgb, var(--surface-high) 8%, transparent); }
+html[data-custom-bg="on"] .uc.u1 { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+html[data-custom-bg="on"] .uc.u2 { background: color-mix(in srgb, var(--primary) 38%, transparent); }
+html[data-custom-bg="on"] .uc.u3 { background: color-mix(in srgb, var(--primary) 56%, transparent); }
+html[data-custom-bg="on"] .uc.u4 { background: color-mix(in srgb, var(--primary) 74%, transparent); }
+html[data-custom-bg="on"] .uc.is-blank { background: transparent; }
+html[data-custom-bg="on"] .switch { background: color-mix(in srgb, var(--surface-highest) 16%, transparent); }
+html[data-custom-bg="on"] .switch.on { background: color-mix(in srgb, var(--primary) 38%, transparent); }
+
+html[data-custom-bg="on"] .login,
+html[data-custom-bg="on"] .login-side { background: transparent; }
+html[data-custom-bg="on"] .login-card { background: var(--glass-tint); backdrop-filter: blur(24px) saturate(1.12); }
+html[data-custom-bg="on"] .login-tabs { background: color-mix(in srgb, var(--surface-high) 8%, transparent); }
+html[data-custom-bg="on"] .login-tabs button.selected { background: color-mix(in srgb, var(--primary-container) 24%, transparent); }
