@@ -118,13 +118,12 @@ export async function renderSettings(view) {
     <div class="settings-stack">
       ${settingsTabsHTML()}
       <div class="settings-panels">
-        <div class="settings-panel" data-settings-panel="profile">${profileBlock()}</div>
+        <div class="settings-panel" data-settings-panel="profile">${profileBlock()}${accountsBlock()}</div>
         <div class="settings-panel" data-settings-panel="appearance">${appearanceBlock()}</div>
         <div class="settings-panel" data-settings-panel="notify">${notifBlock()}</div>
         <div class="settings-panel" data-settings-panel="security">${securityBlock()}${devicesBlock()}</div>
         <div class="settings-panel" data-settings-panel="local">${localBlock()}</div>
       </div>
-      ${accountsBlock()}
     </div>
   </div>`;
   bindSettingsTabs(view);
