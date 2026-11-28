@@ -468,6 +468,7 @@ a.link { color: var(--primary); }
   height: 38px; padding: 0 18px;
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600;
+  white-space: nowrap;
   border-radius: var(--r-full);
   transition: background var(--dur-short), color var(--dur-short), border-radius var(--dur-med) var(--ease-emph);
 }
@@ -650,12 +651,20 @@ a.link { color: var(--primary); }
 .composer-prompt textarea::placeholder { color: color-mix(in srgb, var(--on-surface-variant) 65%, transparent); font-weight: 450; }
 .prompt-meta { display: flex; align-items: center; gap: 10px; margin: 2px 6px 0; }
 .prompt-meta .count { margin-left: auto; font-size: 11px; color: var(--on-surface-variant); }
-.controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 16px; animation: rise-in .26s var(--ease-emph) both; }
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: flex-start;
+  margin-top: 16px;
+  animation: rise-in .26s var(--ease-emph) both;
+}
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-.control-group { display: flex; flex-direction: column; gap: 6px; }
+.control-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.control-group.wide { flex: 0 0 100%; }
 .control-group > span { font-size: 11px; color: var(--on-surface-variant); font-weight: 550; letter-spacing: .02em; }
 .refs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .ref {

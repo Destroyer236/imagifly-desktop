@@ -174,7 +174,7 @@ function controlsHTML() {
     const ratios = imageRatios();
     const qualities = imageQualities();
     return `
-      <div class="control-group"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${UI.esc(r)}">${UI.esc(r)}</button>`).join('')}</div></div>
+      <div class="control-group wide"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${UI.esc(r)}">${UI.esc(r)}</button>`).join('')}</div></div>
       <div class="control-group"><span>质量</span><div class="seg sm">${qualities.map((q) => `<button class="seg-item ${S.compose.quality === q.id ? 'selected' : ''}" data-act="create-quality" data-value="${UI.esc(q.id)}">${UI.esc(q.label)}</button>`).join('')}</div></div>
       ${m?.supportsImageCount ? `<div class="control-group"><span>张数</span><div class="stepper"><button data-act="n-dec">−</button><span>${S.compose.n}</span><button data-act="n-inc">＋</button></div></div>` : ''}
       ${tiers.length > 1 ? `<div class="control-group"><span>分辨率</span><div class="chips">${tiers.map((t) => `<button class="chip ${S.compose.resolutionTier === t.id ? 'selected' : ''}" data-act="create-tier" data-value="${t.id}">${t.label || t.id}</button>`).join('')}</div></div>` : ''}
@@ -198,7 +198,7 @@ function controlsHTML() {
     ${durs.length ? `<div class="control-group"><span>时长</span><div class="chips">${durs.map((d) => `<button class="chip ${S.compose.duration === d ? 'selected' : ''}" data-act="create-duration" data-value="${d}">${d}</button>`).join('')}</div></div>` : ''}
     ${fps.length ? `<div class="control-group"><span>帧率</span><div class="chips">${fps.map((f) => `<button class="chip ${S.compose.fps === f ? 'selected' : ''}" data-act="create-fps" data-value="${f}">${f}fps</button>`).join('')}</div></div>` : ''}
     ${resolutions.length ? `<div class="control-group"><span>分辨率</span><div class="chips">${resolutions.map((r) => `<button class="chip ${S.compose.size === r.size ? 'selected' : ''}" data-act="create-resolution" data-value="${UI.esc(r.size || '')}">${UI.esc(r.label || r.resolution || r.size)}</button>`).join('')}</div></div>` : ''}
-    ${ratios.length ? `<div class="control-group"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${r}">${r}</button>`).join('')}</div></div>` : ''}
+    ${ratios.length ? `<div class="control-group wide"><span>比例</span><div class="chips">${ratios.map((r) => `<button class="chip ${S.compose.ratio === r ? 'selected' : ''}" data-act="create-ratio" data-value="${r}">${r}</button>`).join('')}</div></div>` : ''}
     ${extraControlsHTML()}
     <div class="control-group"><span>高级</span><button class="chip ${S.compose.advanced ? 'selected' : ''}" data-act="toggle-advanced">${icon('tune', 15)}参数</button></div>`;
 }
