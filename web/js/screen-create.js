@@ -695,7 +695,7 @@ function paintLatest(item) {
 }
 
 function isRecentNew(task, now = Date.now()) {
-  if (task.status !== 'success' || String(task.moderationStatus || '').includes('rejected')) return false;
+  if (task.status !== 'success') return false;
   const ts = new Date(task.createdAt).getTime();
   if (!Number.isFinite(ts)) return false;
   const age = now - ts;
@@ -713,7 +713,7 @@ function scheduleNewBadgeTick(sorted) {
   newBadgeTimer = null;
   const now = Date.now();
   const expiries = sorted
-    .filter((t) => t.status === 'success' && !String(t.moderationStatus || '').includes('rejected'))
+    .filter((t) => t.status === 'success')
     .map((t) => new Date(t.createdAt).getTime() + NEW_WINDOW_MS)
     .filter((ts) => Number.isFinite(ts) && ts > now);
   if (!expiries.length) return;
