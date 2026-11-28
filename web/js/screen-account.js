@@ -445,7 +445,7 @@ function expiryCard() {
       <span class="insight-note">可用 ${UI.fmtCredits(available)}</span>
     </div>
     <div class="expiry-lead">${lead}</div>
-    <div class="expiry-bar">${segments}</div>
+    <div class="expiry-bar${total > 0 ? '' : ' is-empty'}">${segments}</div>
     <div class="expiry-legend">${EXPIRY_LABELS.map((label, i) => (
       `<span><i class="dot${i}"></i>${label}<b>${pctLabel(pcts[i])}</b></span>`
     )).join('')}</div>

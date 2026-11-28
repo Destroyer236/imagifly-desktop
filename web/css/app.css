@@ -917,18 +917,17 @@ a.link { color: var(--primary); }
 .expiry-lead { display: flex; align-items: baseline; gap: 5px; margin-top: 18px; font-size: 13px; color: var(--on-surface-variant); }
 .expiry-lead .num { font-family: var(--font-display); font-size: 20px; font-weight: 650; color: var(--on-surface); }
 .expiry-lead b { color: var(--on-surface); font-weight: 620; }
-.expiry-bar { display: flex; height: 13px; margin-top: 14px; border-radius: var(--r-full); background: var(--surface-high); overflow: hidden; }
-.expiry-bar > i { display: block; height: 100%; min-width: 4px; }
-.expiry-bar .seg0 { background: var(--error); }
-.expiry-bar .seg1 { background: var(--warning); }
-.expiry-bar .seg2 { background: var(--success); }
+.expiry-bar { display: flex; height: 13px; margin-top: 14px; border-radius: var(--r-full); background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 92%, var(--surface-high)) 0%, color-mix(in srgb, var(--primary) 58%, var(--surface-high)) 52%, color-mix(in srgb, var(--primary) 34%, var(--surface-high)) 100%); overflow: hidden; }
+.expiry-bar.is-empty { background: var(--surface-high); }
+.expiry-bar > i { display: block; height: 100%; min-width: 4px; background: transparent; }
+.expiry-bar > i + i { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--surface-container) 55%, transparent); }
 .expiry-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; font-size: 11.5px; color: var(--on-surface-variant); }
 .expiry-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .expiry-legend i { width: 7px; height: 7px; border-radius: 50%; }
 .expiry-legend b { color: var(--on-surface); font-weight: 600; }
-.expiry-legend .dot0 { background: var(--error); }
-.expiry-legend .dot1 { background: var(--warning); }
-.expiry-legend .dot2 { background: var(--success); }
+.expiry-legend .dot0 { background: color-mix(in srgb, var(--primary) 92%, var(--surface-high)); }
+.expiry-legend .dot1 { background: color-mix(in srgb, var(--primary) 58%, var(--surface-high)); }
+.expiry-legend .dot2 { background: color-mix(in srgb, var(--primary) 34%, var(--surface-high)); }
 .usage-grid { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
 .usage-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; align-items: center; }
 .usage-row .um { font-size: 11px; color: var(--on-surface-variant); white-space: nowrap; }
