@@ -794,6 +794,13 @@ a.link { color: var(--primary); }
 .account-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
 .settings-stack { display: flex; flex-direction: column; gap: 22px; }
 .settings-stack > .sect { margin-top: 0; }
+.settings-tabs { margin: -4px 0 0; padding: 3px; max-width: 100%; overflow-x: auto; }
+.settings-tabs .seg-item { height: 32px; padding: 0 13px; font-size: 12.5px; }
+.settings-tabs .seg-item svg { width: 15px; height: 15px; }
+.settings-panels { display: flex; flex-direction: column; gap: 22px; }
+.settings-panel { display: flex; flex-direction: column; gap: 22px; }
+.settings-panel[hidden] { display: none; }
+.settings-panel > .sect { margin-top: 0; }
 .theme-color-head { display: flex; align-items: center; gap: 12px; }
 .theme-color-swatch {
   width: 42px; height: 42px; flex: none; border-radius: 50%;

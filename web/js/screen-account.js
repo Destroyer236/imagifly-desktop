@@ -76,21 +76,58 @@ export async function renderCredits(view) {
   </div>`;
 }
 
+let settingsTab = 'profile';
+
+const SETTINGS_TABS = [
+  ['profile', '资料', 'person'],
+  ['appearance', '外观', 'palette'],
+  ['notify', '通知', 'bell'],
+  ['security', '安全与设备', 'lock'],
+  ['local', '本地', 'folder'],
+];
+
+function settingsTabsHTML() {
+  return `<div class="seg sm settings-tabs" role="tablist" aria-label="设置分类">
+    ${SETTINGS_TABS.map(([id, label, ic]) => `<button class="seg-item ${id === settingsTab ? 'selected' : ''}" role="tab" aria-selected="${id === settingsTab}" data-settings-tab="${id}">${icon(ic, 16)}${label}</button>`).join('')}
+  </div>`;
+}
+
+function bindSettingsTabs(view) {
+  const buttons = [...view.querySelectorAll('[data-settings-tab]')];
+  const select = (tab) => {
+    if (!SETTINGS_TABS.some(([id]) => id === tab)) return;
+    settingsTab = tab;
+    buttons.forEach((b) => {
+      const active = b.dataset.settingsTab === tab;
+      b.classList.toggle('selected', active);
+      b.setAttribute('aria-selected', String(active));
+    });
+    view.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.settingsPanel !== tab;
+    });
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => select(b.dataset.settingsTab)));
+  select(settingsTab);
+}
+
 export async function renderSettings(view) {
   const errors = await loadBlocks(settingsRequests(), view);
   view.innerHTML = `<div class="page pref-page">
     ${prefsTabsHTML('settings')}
     ${errorBanner(errors)}
     <div class="settings-stack">
-      ${profileBlock()}
-      ${appearanceBlock()}
+      ${settingsTabsHTML()}
+      <div class="settings-panels">
+        <div class="settings-panel" data-settings-panel="profile">${profileBlock()}</div>
+        <div class="settings-panel" data-settings-panel="appearance">${appearanceBlock()}</div>
+        <div class="settings-panel" data-settings-panel="notify">${notifBlock()}</div>
+        <div class="settings-panel" data-settings-panel="security">${securityBlock()}${devicesBlock()}</div>
+        <div class="settings-panel" data-settings-panel="local">${localBlock()}</div>
+      </div>
       ${accountsBlock()}
-      ${notifBlock()}
-      ${securityBlock()}
-      ${devicesBlock()}
-      ${localBlock()}
     </div>
   </div>`;
+  bindSettingsTabs(view);
   bindAvatar(view);
   bindThemePicker(view);
 }
@@ -678,7 +715,7 @@ function referralBlock() {
 }
 
 function securityBlock() {
-  return `<section class="sect">${UI.sectionHead('安全与本地', '')}
+  return `<section class="sect">${UI.sectionHead('账号安全', 'DPAPI 加密会话与退出')}
     <div class="card pad-sm" style="padding:14px">
       <div class="list-row"><span class="ic">${icon('lock', 18)}</span><div class="main"><div class="t">会话存储</div><div class="s">DPAPI 加密 · %AppData%\\ImagiflyDesktop\\accounts.bin（每个账号一份）</div></div><span class="pill ok">已加密</span></div>
       <div class="list-row"><span class="ic">${icon('logout', 18)}</span><div class="main"><div class="t">退出当前账号</div><div class="s">其他已保存账号会保留，可在账号切换中一键切回</div></div><button class="btn text xs" data-act="logout">退出</button></div>
