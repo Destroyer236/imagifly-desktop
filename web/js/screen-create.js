@@ -497,7 +497,7 @@ async function doGenerate(view) {
   }
   if (S.compose.prompt !== prompt) S.compose.prompt = prompt;
   const limit = refLimit();
-  if (S.refs.length > limit) {
+  if (limit > 0 && S.refs.length > limit) {
     UI.toast(`当前模型最多 ${limit} 个参考素材`, 'error');
     return;
   }
@@ -526,7 +526,7 @@ async function doGenerate(view) {
     fd.set('quality', c.quality || 'standard');
     if (c.visibility === 'private' && canPrivate()) fd.set('communityVisibility', 'private');
     applyExtras(fd);
-    S.refs.forEach((r) => fd.append('ref_image', r.file, r.name));
+    if (limit > 0) S.refs.forEach((r) => fd.append('ref_image', r.file, r.name));
   } else {
     const vm = currentVideoModel();
     const spec = videoSpec();
@@ -540,7 +540,7 @@ async function doGenerate(view) {
     if (c.quality) fd.set('quality', c.quality);
     if (c.seed) fd.set('seed', c.seed);
     applyExtras(fd);
-    S.refs.forEach((r) => {
+    if (limit > 0) S.refs.forEach((r) => {
       const field = r.kind === 'firstFrame' ? 'ref_first' : r.kind === 'lastFrame' ? 'ref_last' : r.kind === 'video' ? 'ref_video' : r.kind === 'audio' ? 'ref_audio' : 'ref_image';
       fd.append(field, r.file, r.name);
     });
@@ -846,9 +846,10 @@ export const createActions = {
     if (menu) menu.hidden = !menu.hidden;
   },
   'model-pick': (d) => {
+    const keepRefs = S.compose.mode === 'image' ? S.refs.slice() : [];
     if (S.compose.mode === 'image') S.compose.imageModel = d.id;
     else S.compose.videoModel = d.id;
-    S.refs = [];
+    S.refs = keepRefs;
     S.compose.extra = {};
     const menu = document.getElementById('modelMenu');
     if (menu) menu.hidden = true;
@@ -865,6 +866,11 @@ export const createActions = {
       S.compose.variant = variants[0]?.id || '';
       applyVideoSpec(videoSpec());
       S.compose.workflowFormat = vm.workflowFormats?.[0]?.id || 't2v';
+    }
+    const limit = refLimit();
+    if (S.compose.mode === 'image' && limit > 0 && S.refs.length > limit) {
+      S.refs = S.refs.slice(0, limit);
+      UI.toast(`新模型最多 ${limit} 个参考图，已保留前 ${limit} 个`, 'warn');
     }
     refreshComposer(document.getElementById('view'));
   },

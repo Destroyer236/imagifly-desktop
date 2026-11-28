@@ -3,7 +3,7 @@
 ; 依赖：..\imagifly-desktop.exe（先跑 build.ps1）、..\assets\app.ico、ChineseSimplified.isl
 
 #ifndef AppVersion
-  #define AppVersion "1.2.28"
+  #define AppVersion "1.2.29"
 #endif
 
 #define AppName "Imagifly Desktop"
