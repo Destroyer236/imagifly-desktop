@@ -4,6 +4,7 @@ import * as UI from './ui.js';
 import { icon } from './icons.js';
 import { R } from './runtime.js';
 import { repaintLibrary, reloadGalleryQuiet } from './screen-library.js';
+import { updateCreateTasks } from './screen-create.js';
 
 export async function openTaskSheet(id) {
   let timer = null;
@@ -135,6 +136,7 @@ export async function openTaskSheet(id) {
       hideGeneration(item.id);
       try { sheetRef.close(); } catch {}
       repaintLibrary();
+      updateCreateTasks();
       UI.toast('已删除', 'ok');
       let result = 'ok';
       try {
@@ -145,6 +147,7 @@ export async function openTaskSheet(id) {
         } else {
           unhideGeneration(item.id);
           repaintLibrary();
+          updateCreateTasks();
           UI.toast('删除失败：' + e.message, 'error');
           R.refreshTasks(true);
           reloadGalleryQuiet();
