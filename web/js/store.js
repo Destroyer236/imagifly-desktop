@@ -33,6 +33,11 @@ export const S = {
     visibility: 'public',
     advanced: false,
     source: null,
+    // Tasks created in this session: when one finishes, the create page shows
+    // it in the large "NEW" preview instead of only a small recent card.
+    watchIds: [],
+    revealId: '',
+    revealSeen: false,
   },
   refs: [],
   library: { tab: 'recent', gallery: null, offset: 0, loaded: false },

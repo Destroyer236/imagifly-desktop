@@ -297,6 +297,16 @@ function template() {
         <div class="active-strip" id="activeStrip"></div>
       </section>
 
+      <section class="sect latest-sect" id="latestSect" hidden>
+        <div class="latest-head">
+          <span class="latest-flag">NEW</span>
+          <div class="latest-title"><b>刚刚生成</b><span id="latestMeta"></span></div>
+          <div class="grow"></div>
+          <button class="btn text sm" data-act="latest-dismiss">收起</button>
+        </div>
+        <div class="latest-stage" id="latestStage" data-act="open-task" tabindex="0" role="button" aria-label="查看刚刚生成的作品"></div>
+      </section>
+
       <section class="sect">
         ${UI.sectionHead('最近作品', '缩略图直接来自 previewThumbnailUrl', `<button class="btn text sm" data-act="nav" data-route="library">全部作品 ${icon('chevronRight', 16)}</button>`)}
         <div class="grid cards" id="recentGrid"></div>
@@ -551,6 +561,11 @@ async function doGenerate(view) {
       api('/local/community/remix', { method: 'POST', body: { communityGenerationId: S.compose.source.communityId, generationId: gen.id } }).catch(() => {});
       S.compose.source = null;
     }
+    if (gen?.id) {
+      S.compose.watchIds = [...new Set([...(S.compose.watchIds || []), String(gen.id)])].slice(-8);
+      S.compose.revealId = '';
+      S.compose.revealSeen = false;
+    }
     UI.toast(mode === 'image' ? '已提交图片生成' : '已提交视频生成', 'ok', {
       label: '查看',
       fn: () => gen?.id && R.navigate('library'),
@@ -644,11 +659,77 @@ async function doTranslate(view) {
   }
 }
 
+function latestStageHTML(item) {
+  const isVideo = item.mode === 'video';
+  const asset = item.assets?.[0];
+  const name = `imagifly-${item.model || 'gen'}-${String(item.id || '').slice(-6)}`;
+  let media = '';
+  if (isVideo) {
+    const video = UI.proxyMediaURL(UI.assetURL(item));
+    const poster = UI.mediaURL(asset?.thumbnailUrl || item.previewThumbnailUrl);
+    media = video
+      ? `<video src="${UI.esc(video)}" controls autoplay muted loop playsinline${poster ? ` poster="${UI.esc(poster)}"` : ''}></video>`
+      : `<div class="latest-ph">${icon('movie', 44)}<span>暂无视频文件</span></div>`;
+  } else {
+    const img = UI.assetImageURL(asset, 1200) || UI.mediaURL(item.previewThumbnailUrl);
+    const fallback = UI.proxyMediaURL(asset?.thumbnailUrl || item.previewThumbnailUrl || asset?.url);
+    media = img
+      ? `<img src="${UI.esc(img)}" alt="${UI.esc(UI.shortPrompt(item.prompt, 80))}" decoding="async" fetchpriority="high"${fallback ? ` data-fallback="${UI.esc(fallback)}"` : ''}>`
+      : `<div class="latest-ph">${icon('image', 44)}<span>暂无图片文件</span></div>`;
+  }
+  return `${media}
+    <div class="latest-tools">
+      <span class="latest-tag">${icon(isVideo ? 'movie' : 'image', 13)}${isVideo ? '视频' : '图片'} · 已完成</span>
+      <button class="btn filled sm" data-act="open-task" data-id="${UI.esc(item.id)}">${icon('external', 16)}查看大图</button>
+    </div>
+    <button class="icon-btn sm latest-save" data-act="quick-download" data-url="${UI.esc(UI.assetURL(item)) || UI.esc(item.previewThumbnailUrl)}" data-name="${UI.esc(name)}" data-tip="保存到本地">${icon('download', 18)}</button>`;
+}
+
+function paintLatest(item) {
+  const sect = document.getElementById('latestSect');
+  const stage = document.getElementById('latestStage');
+  const meta = document.getElementById('latestMeta');
+  if (!sect || !stage) return;
+  if (meta) meta.textContent = `${modelLabel(item.model)} · ${UI.shortPrompt(item.prompt, 72)}`;
+  stage.dataset.id = item.id;
+  stage.innerHTML = latestStageHTML(item);
+  sect.hidden = false;
+}
+
+function visibleReveal(sorted) {
+  const ids = new Set((S.compose.watchIds || []).map(String));
+  return sorted.find((t) => ids.has(String(t.id))
+    && t.status === 'success'
+    && !String(t.moderationStatus || '').includes('rejected')
+    && !S.removed.has(String(t.id))) || null;
+}
+
 export function updateCreateTasks() {
   const grid = document.getElementById('recentGrid');
   if (!grid) return;
   const sorted = [...S.tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  UI.paintTaskGrid(grid, sorted.slice(0, 12));
+  const reveal = visibleReveal(sorted);
+  const fresh = reveal && String(reveal.id) !== String(S.compose.revealId || '');
+  if (fresh) {
+    S.compose.revealId = String(reveal.id);
+    S.compose.revealSeen = false;
+  }
+  const showNew = !!reveal && !S.compose.revealSeen && String(reveal.id) === String(S.compose.revealId || '');
+  UI.paintTaskGrid(grid, sorted.slice(0, 12), showNew ? reveal.id : '');
+
+  const latest = document.getElementById('latestSect');
+  if (latest) {
+    if (showNew) paintLatest(reveal);
+    else latest.hidden = true;
+  }
+  if (showNew && fresh) {
+    // The form is tall; bring the finished image into view instead of leaving
+    // it below the fold next to the ordinary recent cards.
+    requestAnimationFrame(() => {
+      latest?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
   const running = sorted.filter((t) => t.status === 'generating');
   const sect = document.getElementById('activeSect');
   const strip = document.getElementById('activeStrip');
@@ -769,5 +850,9 @@ export const createActions = {
   'rm-ref': (d) => { S.refs.splice(Number(d.i), 1); refreshComposer(document.getElementById('view')); },
   optimize: () => doOptimize(document.getElementById('view')),
   'translate-prompt': () => doTranslate(document.getElementById('view')),
+  'latest-dismiss': () => {
+    S.compose.revealSeen = true;
+    updateCreateTasks();
+  },
   generate: () => doGenerate(document.getElementById('view')),
 };
